@@ -22,4 +22,4 @@ This project was built using **Python 3.11** and **CUDA 1.12**.
 ## Using the project
 ### External setup
 To make this project work, you will need a camera connected to your computer **and available** (ie. not being used by another software).
-`python main.py`
+```python main.py```
