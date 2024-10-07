@@ -15,3 +15,6 @@ ninja
 wheel
 tensorrt
 Flask
+optimum
+onnxruntime-gpu
+onnx
