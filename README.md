@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This project is designed for the 7 Doigts / 7 Fingers company.
+This project is designed for the [7 Doigts](https://7doigts.com/) / [7 Fingers](https://7fingers.com/) company.
 It contains the code for generating live pictures using Stable Diffusion based on a camera input.
 
 ## Installation
@@ -66,10 +66,12 @@ Some presets have been defined and can be accessed by using the spinbox on the l
 A second interface should be created displaying the results.
 If the debug mode is left unchecked, only the output will be shown, in fullscreen.
 
-<p align="center">
-    <img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="150"/>
-    <img src="/assets/screen-preview.png" alt="Preview of the output" height="150"/>
-</p>
+<table align="center">
+<tr>
+<td><img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="150"/></td>
+<td><img src="/assets/screen-preview.png" alt="Preview of the output" height="150"/></td>
+</tr>
+</table>
 
 If the debug mode is activated, the input will be shown with the output.
 
