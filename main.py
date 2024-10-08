@@ -23,12 +23,26 @@ import time
 # To send the frames as a stream
 from flask import Flask, Response
 
-if os.getenv('TRANSFORMERS_CACHE') and os.getenv('HF_HOME'):    # Environment variables already defined, (down)load models there
+"""
+if os.environ.get('TRANSFORMERS_CACHE') and os.environ.get('HF_HOME'):    # Environment variables already defined, (down)load models there
+    print("Path already defined, skipping")
+    print(os.environ.get('HF_HOME'))
     pass
-else :
-    new_path = input("Write path to where models should be downloaded") 
-    os.environ['HF_HOME'] = new_path
-    os.environ['TRANSFORMERS_CACHE'] = new_path    # path to downloaded models
+"""
+
+open_file = open("config.txt", "r")
+model_path = open_file.readline()
+open_file.close()
+if model_path == "" :
+    open_file = open("config.txt", "w")
+    model_path = input("Write path to where models should be downloaded")
+    open_file.writelines(model_path)
+    open_file.close()
+print(model_path)
+
+os.environ["HF_HOME"] = model_path
+os.environ["TRANSFORMERS_CACHE"] = model_path    # path to downloaded models
+
 
 torch.backends.cuda.matmul.allow_tf32 = True       # use 32 precision floats
 

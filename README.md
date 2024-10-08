@@ -21,6 +21,10 @@ This project was built using **Python 3.11** and **CUDA 1.12**.
 ```
 python -m pip install -r requirements.txt
 ```
+Then install the correct torch installation. If you use a different CUDA (check it in `Programs/NVIDIA GPU Computing Toolkit`), please refer to [Torch official site](https://pytorch.org/get-started/locally/) to get the correct version.
+```
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
 ## Using the project
 ### External setup
 To make this project work, you will need a camera connected to your computer and **available**
@@ -28,3 +32,7 @@ To make this project work, you will need a camera connected to your computer and
 ```
 python main.py
 ```
+An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file.
+### Main Interface
+A first Tkinter interface should open up with a selection of parameters.
+Some presets have been defined and can be accessed by using the spinbox on the left. 
