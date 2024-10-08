@@ -35,5 +35,7 @@ python main.py
 An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file.
 ### Main Interface
 A first Tkinter interface should open up with a selection of parameters.
-Some presets have been defined and can be accessed by using the spinbox on the left. 
+Some presets have been defined and can be accessed by using the spinbox on the left.
+
+
 ![Location of the preset selection button](/assets/screen-preset.PNG)
