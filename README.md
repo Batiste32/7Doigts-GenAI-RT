@@ -79,3 +79,22 @@ If the debug mode is activated, the input will be shown with the output.
 <p align="center">
     <img src="/assets/screen-preview-debug.PNG" alt="Preview in debug mode" height="150"/>
 </p>
+
+### The different effects
+
+At the bottom of the main interface, there is a collection of buttons to start the different generation styles :
+
+<p align="center">
+    <img src="/assets/screen-effects.PNG" alt="Preview in debug mode" height="150"/>
+</p>
+
+Each of them requires different input fields. To explore each possibility, it is recommended to use the preset selection to see what kind of effect requires what inputs and what kind of output you can expect. If an input isn't defined, default values will be used.
+
+**List of Inputs per effect :**
+
+| Effect Type       | Positive Prompt | Negative Prompt           | Adapter Image        | Background GIF        |
+|-------------------|------------------|---------------------------|-----------------------|-----------------------|
+| **Standard effect**    | ✓                | ✓                         |                       |                       |
+| **Adapter effect**     | ✓                | ✓                         | ✓                     |                       |
+| **Background effect**  | ✓                | ✓                         | ✓                     | ✓                     |
+| **Perspective prompt** | ✓                | ✓                         | _(optional)_          |                       |
