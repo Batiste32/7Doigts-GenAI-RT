@@ -57,8 +57,22 @@ An input field should appear, asking for a model path. This is where the models 
 A first Tkinter interface should open up with a selection of parameters.
 Some presets have been defined and can be accessed by using the spinbox on the left.
 
-![Location of the preset selection button](/assets/screen-preset.PNG)
+<div style="text-align: center;">
+    <img src="/assets/screen-preset.PNG" alt="Location of the preset selection button" width="400"/>
+</div>
 
 ### Generation Interface
 
-A second interface should be created displaying
+A second interface should be created displaying the results.
+If the debug mode is left unchecked, only the output will be shown, in fullscreen.
+
+<div style="text-align: center;">
+    <img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="100"/>
+    <img src="/assets/screen-preview.png" alt="Preview of the output" height="100"/>
+</div>
+
+If the debug mode is activated, the input will be shown with the output.
+
+<div style="text-align: center;">
+    <img src="/assets/screen-preview-debug.png" alt="Preview in debug mode" width="400"/>
+</div>
