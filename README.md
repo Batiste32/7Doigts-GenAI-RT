@@ -1,4 +1,4 @@
-﻿# 7Doigts-GenAI-RT <img src="/assets/Lab7_BlancRouge.png" alt="Logo for the 7 Fingers" height="50" style="vertical-align: middle;"/>
+﻿﻿# 7Doigts-GenAI-RT <img src="/assets/Lab7_BlancRouge.png" alt="Logo for the 7 Fingers" height="50" style="vertical-align: middle;"/>
 
 ## Introduction
 
@@ -68,8 +68,8 @@ If the debug mode is left unchecked, only the output will be shown, in fullscree
 
 <table align="center">
 <tr>
-<td><img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="150"/></td>
-<td><img src="/assets/screen-preview.png" alt="Preview of the output" height="150"/></td>
+<td><img src="./assets/screen-debug.PNG" alt="Location of the debug checkbox" height="150"/></td>
+<td><img src="./assets/screen-preview.PNG" alt="Preview of the output" height="150"/></td>
 </tr>
 </table>
 
