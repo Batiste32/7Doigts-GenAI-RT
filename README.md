@@ -66,8 +66,13 @@ Some presets have been defined and can be accessed by using the spinbox on the l
 A second interface should be created displaying the results.
 If the debug mode is left unchecked, only the output will be shown, in fullscreen.
 
-![Location of the debug checkbox](/assets/screen-debug.png){: style="height: 150px; display: inline-block;"} ![Preview of the output](/assets/screen-preview.png){: style="height: 150px; display: inline-block;"}
+<p align="center">
+    <img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="150"/>
+    <img src="/assets/screen-preview.png" alt="Preview of the output" height="150"/>
+</p>
 
 If the debug mode is activated, the input will be shown with the output.
 
-![Preview in debug mode](/assets/screen-preview-debug.png){: style="height: 150px; display: inline-block;"}
+<p align="center">
+    <img src="/assets/screen-preview-debug.PNG" alt="Preview in debug mode" height="150"/>
+</p>
