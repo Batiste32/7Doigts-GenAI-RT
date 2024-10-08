@@ -1,4 +1,4 @@
-﻿# 7Doigts-GenAI-RT
+﻿# 7Doigts-GenAI-RT <img src="/assets/Lab7_BlancRouge.png" alt="Logo for the 7 Fingers" height="50" style="vertical-align: middle;"/>
 
 ## Introduction
 
@@ -57,22 +57,22 @@ An input field should appear, asking for a model path. This is where the models 
 A first Tkinter interface should open up with a selection of parameters.
 Some presets have been defined and can be accessed by using the spinbox on the left.
 
-<div style="text-align: center;">
-    <img src="/assets/screen-preset.PNG" alt="Location of the preset selection button" width="400"/>
-</div>
+<p align="center">
+    <img src="/assets/screen-preset.PNG" alt="Location of the preset selection button" height="150"/>
+</p>
 
 ### Generation Interface
 
 A second interface should be created displaying the results.
 If the debug mode is left unchecked, only the output will be shown, in fullscreen.
 
-<div style="text-align: center;">
-    <img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="100"/>
-    <img src="/assets/screen-preview.png" alt="Preview of the output" height="100"/>
-</div>
+<p align="center">
+    <img src="/assets/screen-debug.png" alt="Location of the debug checkbox" height="150"/>
+    <img src="/assets/screen-preview.png" alt="Preview of the output" height="150"/>
+</p>
 
 If the debug mode is activated, the input will be shown with the output.
 
-<div style="text-align: center;">
-    <img src="/assets/screen-preview-debug.png" alt="Preview in debug mode" width="400"/>
-</div>
+<p align="center">
+    <img src="/assets/screen-preview-debug.png" alt="Preview in debug mode" height="150"/>
+</p>
