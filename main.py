@@ -23,17 +23,13 @@ import time
 # To send the frames as a stream
 from flask import Flask, Response
 
-"""
-if os.environ.get('TRANSFORMERS_CACHE') and os.environ.get('HF_HOME'):    # Environment variables already defined, (down)load models there
-    print("Path already defined, skipping")
-    print(os.environ.get('HF_HOME'))
-    pass
-"""
+# For type hint
+from typing import Generator
 
 open_file = open("config.txt", "r")
 model_path = open_file.readline()
 open_file.close()
-if model_path == "" :
+if model_path == "" : # Check if path defined, if not, ask the user
     open_file = open("config.txt", "w")
     model_path = input("Write path to where models should be downloaded")
     open_file.writelines(model_path)
@@ -43,19 +39,43 @@ print(model_path)
 os.environ["HF_HOME"] = model_path
 os.environ["TRANSFORMERS_CACHE"] = model_path    # path to downloaded models
 
-
 torch.backends.cuda.matmul.allow_tf32 = True       # use 32 precision floats
 
-GifImagePlugin.LOADING_STRATEGY = GifImagePlugin.LoadingStrategy.RGB_ALWAYS
+GifImagePlugin.LOADING_STRATEGY = GifImagePlugin.LoadingStrategy.RGB_ALWAYS # Ensures that GIF frames are always loaded in RGB format, even if the GIF has a palette or other color mode, to simplify image processing.
 
 class WebcamCapture:
-    def __init__(self, cam_index=0):
+    """
+    A class to handle capturing frames from a webcam using OpenCV.
+    
+    Attributes:
+        cap (cv2.VideoCapture): The video capture object for accessing the webcam.
+    
+    Methods:
+        __init__(cam_index): Initializes the webcam with the specified camera index.
+        release(): Releases the webcam resource.
+    """
+    def __init__(self, cam_index:int=0):
+        """
+        Initializes the webcam using the specified camera index (default is 0, the first webcam).
+        
+        Args:
+            cam_index (int): The index of the camera to be used. Default is 0.
+        
+        Raises:
+            Exception: If the video device cannot be opened.
+        """
         # Initialize the webcam once
         self.cap = cv2.VideoCapture(cam_index)
         if not self.cap.isOpened():
             raise Exception("Could not open video device")
     
-    def capture_image(self):
+    def capture_image(self) -> Image.Image:
+        """
+        Captures the current frame from the camera and returns it as a PIL Image.
+        
+        Returns:
+            Image.Image: The current camera frame as a PIL Image.
+        """
         # Capture a single frame
         ret, frame = self.cap.read()
         if not ret:
@@ -70,55 +90,195 @@ class WebcamCapture:
         
         return image
 
-    def release(self):
+    def release(self) -> None:
+        """
+        Releases the camera resource, closing any open connections.
+        """
         # Release the webcam when done
         self.cap.release()
 
 class SDPipeline:
-    def __init__(self, model_name="stabilityai/sdxl-turbo", seed=314159):
+    """
+    A class to handle image transformation using the Stable Diffusion pipeline.
+
+    Attributes:
+        model_name (str): The name of the model to be used.
+        seed (int): The random seed for generating images.
+        pipe (AutoPipelineForImage2Image): The Stable Diffusion pipeline for image-to-image generation.
+        generator (torch.Generator): The random number generator for deterministic results.
+        adapter_image (Optional[Image]): The adapter image for IP-Adapter processing (default is None).
+        image_encoder (Optional[CLIPVisionModelWithProjection]): The image encoder for IP-Adapter (default is None).
+    
+    Methods:
+        __init__(model_name: str, seed: int) -> None: 
+            Initializes the Stable Diffusion pipeline with the specified model name and seed.
+        
+        transform_image(prompt: str, input_image: str, negative_prompt: str = "", num_steps: int = 2, cfg: float = 1.0, strength: float = 0.5, return_type: str = "image") -> Image.Image: 
+            Transforms an input image using the Stable Diffusion pipeline.
+        
+        accelerate_pipe() -> None:
+            Optimizes the pipeline for faster execution on GPU.
+        
+        add_ip_adapter(image: Image.Image) -> None:
+            Adds an IP-Adapter for improved image transformation.
+    """
+
+    def __init__(self, model_name: str = "stabilityai/sdxl-turbo", seed: int = 314159):
+        """
+        Initializes the Stable Diffusion pipeline with the specified model name and seed.
+
+        Args:
+            model_name (str): The name of the model to be used (default is "stabilityai/sdxl-turbo").
+            seed (int): The random seed for generating images (default is 314159).
+        """
         # Store pipe info
         self.model_name = model_name
         # Initialize the SD pipeline
-        self.pipe = AutoPipelineForImage2Image.from_pretrained(model_name, torch_dtype=torch.float16, variant="fp16", use_safetensors=True).to("cuda")
+        self.pipe = AutoPipelineForImage2Image.from_pretrained(
+            model_name, 
+            torch_dtype=torch.float16, 
+            variant="fp16", 
+            use_safetensors=True
+        ).to("cuda")
         # Set scheduler
-        self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config, use_safetensors=True)
+        self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
+            self.pipe.scheduler.config, 
+            use_safetensors=True
+        )
         # Initialize generator
         self.seed = seed
         self.generator = torch.Generator(device="cuda").manual_seed(seed)
-        #Initialize adapter fields to None
-        self.adapter_image=None
-        self.image_encoder=None
-        
-    def transform_image(self, prompt,  input_image, negative_prompt="",num_steps=2, cfg=1.0, strength=0.5, return_type="image"):
+        # Initialize adapter fields to None
+        self.adapter_image = None
+        self.image_encoder = None
+
+    def transform_image(self, prompt: str, input_image: str, negative_prompt: str = "", num_steps: int = 2, cfg: float = 1.0, strength: float = 0.5, return_type: str = "image") -> Image.Image:
+        """
+        Transforms an input image using the Stable Diffusion pipeline.
+
+        Args:
+            prompt (str): The prompt to guide the image transformation.
+            input_image (str): The path to the input image.
+            negative_prompt (str): An optional negative prompt (default is "").
+            num_steps (int): The number of inference steps (default is 2).
+            cfg (float): The classifier-free guidance scale (default is 1.0).
+            strength (float): The strength of the transformation (default is 0.5).
+            return_type (str): The type of output to return (default is "image").
+
+        Returns:
+            Image.Image: The transformed image as a PIL Image.
+        """
         input_image = load_image(input_image)
-        if self.adapter_image==None :
-            output = self.pipe(prompt, negative_prompt=negative_prompt, image=input_image, num_inference_steps=num_steps, strength=strength, guidance_scale=cfg, generator=self.generator)
-        else :
-            output = self.pipe(prompt, negative_prompt=negative_prompt, image=input_image, ip_adapter_image=self.adapter_image, num_inference_steps=num_steps, strength=strength, guidance_scale=cfg, generator=self.generator)
+        if self.adapter_image is None:
+            output = self.pipe(
+                prompt,
+                negative_prompt=negative_prompt,
+                image=input_image,
+                num_inference_steps=num_steps,
+                strength=strength,
+                guidance_scale=cfg,
+                generator=self.generator
+            )
+        else:
+            output = self.pipe(
+                prompt,
+                negative_prompt=negative_prompt,
+                image=input_image,
+                ip_adapter_image=self.adapter_image,
+                num_inference_steps=num_steps,
+                strength=strength,
+                guidance_scale=cfg,
+                generator=self.generator
+            )
         # Access the generated image correctly
         self.output_image = output.images[0]
         return self.output_image
-    
-    def accelerate_pipe(self):
-        #self.pipe.unet.set_attn_processor(AttnProcessor2_0())
-        #self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead", fullgraph=True)
+
+    def accelerate_pipe(self) -> None:
+        """
+        Optimizes the pipeline for faster execution on GPU.
+
+        This method configures various settings to improve memory efficiency
+        and performance during image generation.
+        """
+        # self.pipe.unet.set_attn_processor(AttnProcessor2_0())
+        # self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead", fullgraph=True)
         self.pipe.to("cuda")
         self.pipe.upcast_vae()
         self.pipe.enable_vae_slicing()
         self.pipe.enable_vae_tiling()
         self.pipe.enable_xformers_memory_efficient_attention()
-        #self.pipe.enable_model_cpu_offload()
+        # self.pipe.enable_model_cpu_offload()
 
-    def add_ip_adapter(self,image):
-        self.adapter_image=image
-        self.image_encoder=CLIPVisionModelWithProjection.from_pretrained("h94/IP-Adapter",subfolder="models/image_encoder",torch_dtype=torch.float16, use_safetensors=True)
-        self.pipe = AutoPipelineForImage2Image.from_pretrained(self.model_name, torch_dtype=torch.float16, variant="fp16", image_encoder=self.image_encoder, use_safetensors=True).to("cuda")
+    def add_ip_adapter(self, image: Image.Image) -> None:
+        """
+        Adds an IP-Adapter for improved image transformation.
+
+        Args:
+            image (Image.Image): The image to be used with the IP-Adapter.
+        """
+        self.adapter_image = image
+        self.image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+            "h94/IP-Adapter",
+            subfolder="models/image_encoder",
+            torch_dtype=torch.float16,
+            use_safetensors=True
+        )
+        self.pipe = AutoPipelineForImage2Image.from_pretrained(
+            self.model_name, 
+            torch_dtype=torch.float16, 
+            variant="fp16", 
+            image_encoder=self.image_encoder, 
+            use_safetensors=True
+        ).to("cuda")
         self.accelerate_pipe()
-        self.pipe.load_ip_adapter("h94/IP-Adapter", subfolder="sdxl_models", weight_name="ip-adapter-plus_sdxl_vit-h.bin")
+        self.pipe.load_ip_adapter(
+            "h94/IP-Adapter", 
+            subfolder="sdxl_models", 
+            weight_name="ip-adapter-plus_sdxl_vit-h.bin"
+        )
         self.pipe.set_ip_adapter_scale(0.7)
         
 class CNPipeline:
-    def __init__(self, model_name="stabilityai/sdxl-turbo", control_net="diffusers/controlnet-depth-sdxl-1.0",seed=314159):
+    """
+    A class to handle image transformation using the ControlNet with Stable Diffusion pipeline.
+
+    Attributes:
+        model_name (str): The name of the Stable Diffusion model to be used.
+        controlnet (ControlNetModel): The ControlNet model for conditioning image transformations.
+        pipe (StableDiffusionXLControlNetPipeline): The pipeline for Stable Diffusion with ControlNet.
+        generator (torch.Generator): The random number generator for deterministic results.
+        adapter_image (Optional[Image]): The adapter image for IP-Adapter processing (default is None).
+        image_encoder (Optional[CLIPVisionModelWithProjection]): The image encoder for IP-Adapter (default is None).
+        control_image (Optional[Image]): The image used for ControlNet conditioning (default is None).
+        controlnet_conditioning_scale (float): The scale for ControlNet conditioning (default is 1.0).
+    
+    Methods:
+        __init__(model_name: str, control_net: str, seed: int) -> None:
+            Initializes the ControlNet pipeline with the specified model name and seed.
+        
+        transform_image(prompt: str, negative_prompt: str, num_steps: int, cfg: float, strength: float, return_type: str) -> Image.Image:
+            Transforms an input image using the ControlNet pipeline.
+
+        accelerate_pipe() -> None:
+            Optimizes the pipeline for faster execution on GPU.
+
+        add_ip_adapter(image: Image.Image) -> None:
+            Adds an IP-Adapter for improved image transformation.
+
+        load_control_image(image: Image.Image, conditioning: float) -> None:
+            Loads the control image for conditioning.
+    """
+
+    def __init__(self, model_name: str = "stabilityai/sdxl-turbo", control_net: str = "diffusers/controlnet-depth-sdxl-1.0", seed: int = 314159):
+        """
+        Initializes the ControlNet pipeline with the specified model name and seed.
+
+        Args:
+            model_name (str): The name of the Stable Diffusion model to be used (default is "stabilityai/sdxl-turbo").
+            control_net (str): The name of the ControlNet model to be used (default is "diffusers/controlnet-depth-sdxl-1.0").
+            seed (int): The random seed for generating images (default is 314159).
+        """
         # Store pipe info
         self.model_name = model_name
         # Initialize the ControlNet
@@ -130,42 +290,121 @@ class CNPipeline:
         # Initialize generator
         self.seed = seed
         self.generator = torch.Generator(device="cuda").manual_seed(seed)
-        #Initialize adapter fields to None
-        self.adapter_image=None
-        self.image_encoder=None
-        
-    def transform_image(self, prompt, negative_prompt="", num_steps=1, cfg=1.0, strength=1, return_type="image"):
-        if self.adapter_image==None :
-            output = self.pipe(prompt, negative_prompt=negative_prompt, image=self.control_image, controlnet_conditioning_scale=self.controlnet_conditioning_scale, num_inference_steps=num_steps, strength=strength, guidance_scale=cfg, generator=self.generator)
-        else :
-            output = self.pipe(prompt, negative_prompt=negative_prompt, image=self.control_image, controlnet_conditioning_scale=self.controlnet_conditioning_scale, ip_adapter_image=self.adapter_image, num_inference_steps=num_steps, strength=strength, guidance_scale=cfg, generator=self.generator)
+        # Initialize adapter fields to None
+        self.adapter_image = None
+        self.image_encoder = None
+        self.control_image = None
+        self.controlnet_conditioning_scale = 1.0
+
+    def transform_image(self, prompt: str, negative_prompt: str = "", num_steps: int = 1, cfg: float = 1.0, strength: float = 1, return_type: str = "image") -> Image.Image:
+        """
+        Transforms an input image using the ControlNet pipeline.
+
+        Args:
+            prompt (str): The prompt to guide the image transformation.
+            negative_prompt (str): An optional negative prompt (default is "").
+            num_steps (int): The number of inference steps (default is 1).
+            cfg (float): The classifier-free guidance scale (default is 1.0).
+            strength (float): The strength of the transformation (default is 1).
+            return_type (str): The type of output to return (default is "image").
+
+        Returns:
+            Image.Image: The transformed image as a PIL Image.
+        """
+        if self.adapter_image is None:
+            output = self.pipe(
+                prompt,
+                negative_prompt=negative_prompt,
+                image=self.control_image,
+                controlnet_conditioning_scale=self.controlnet_conditioning_scale,
+                num_inference_steps=num_steps,
+                strength=strength,
+                guidance_scale=cfg,
+                generator=self.generator
+            )
+        else:
+            output = self.pipe(
+                prompt,
+                negative_prompt=negative_prompt,
+                image=self.control_image,
+                controlnet_conditioning_scale=self.controlnet_conditioning_scale,
+                ip_adapter_image=self.adapter_image,
+                num_inference_steps=num_steps,
+                strength=strength,
+                guidance_scale=cfg,
+                generator=self.generator
+            )
         # Access the generated image correctly
         self.output_image = output.images[0]
         return self.output_image
-    
-    def accelerate_pipe(self):
-        #self.pipe.unet.set_attn_processor(AttnProcessor2_0())
-        #self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead", fullgraph=True)
+
+    def accelerate_pipe(self) -> None:
+        """
+        Optimizes the pipeline for faster execution on GPU.
+
+        This method configures various settings to improve memory efficiency
+        and performance during image generation.
+        """
+        # self.pipe.unet.set_attn_processor(AttnProcessor2_0())
+        # self.pipe.unet = torch.compile(self.pipe.unet, mode="reduce-overhead", fullgraph=True)
         self.pipe.to("cuda")
         self.pipe.upcast_vae()
         self.pipe.enable_vae_slicing()
         self.pipe.enable_vae_tiling()
         self.pipe.enable_xformers_memory_efficient_attention()
-        #self.pipe.enable_model_cpu_offload()
+        # self.pipe.enable_model_cpu_offload()
 
-    def add_ip_adapter(self,image):
-        self.adapter_image=image
-        self.image_encoder=CLIPVisionModelWithProjection.from_pretrained("h94/IP-Adapter",subfolder="models/image_encoder",torch_dtype=torch.float16, use_safetensors=True)
-        self.pipe = StableDiffusionXLControlNetPipeline.from_pretrained(self.model_name, controlnet=self.controlnet, torch_dtype=torch.float16, variant="fp16", image_encoder=self.image_encoder, use_safetensors=True).to("cuda")
+    def add_ip_adapter(self, image: Image.Image) -> None:
+        """
+        Adds an IP-Adapter for improved image transformation.
+
+        Args:
+            image (Image.Image): The image to be used with the IP-Adapter.
+        """
+        self.adapter_image = image
+        self.image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+            "h94/IP-Adapter",
+            subfolder="models/image_encoder",
+            torch_dtype=torch.float16,
+            use_safetensors=True
+        )
+        self.pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
+            self.model_name,
+            controlnet=self.controlnet,
+            torch_dtype=torch.float16,
+            variant="fp16",
+            image_encoder=self.image_encoder,
+            use_safetensors=True
+        ).to("cuda")
         self.accelerate_pipe()
-        self.pipe.load_ip_adapter("h94/IP-Adapter", subfolder="sdxl_models", weight_name="ip-adapter-plus_sdxl_vit-h.bin")
+        self.pipe.load_ip_adapter(
+            "h94/IP-Adapter",
+            subfolder="sdxl_models",
+            weight_name="ip-adapter-plus_sdxl_vit-h.bin"
+        )
         self.pipe.set_ip_adapter_scale(0.7)
-        
-    def load_control_image(self,image,conditioning=1.0):
+
+    def load_control_image(self, image: Image.Image, conditioning: float = 1.0) -> None:
+        """
+        Loads the control image for conditioning.
+
+        Args:
+            image (Image.Image): The control image to be used.
+            conditioning (float): The scale for ControlNet conditioning (default is 1.0).
+        """
         self.control_image = image
         self.controlnet_conditioning_scale = conditioning
         
-def invert_image(image):
+def invert_image(image: Image.Image) -> Image.Image:
+    """
+    Inverts the colors of a given image if a specified variable allows it.
+
+    Args:
+        image (Image.Image): The image to be inverted.
+
+    Returns:
+        Image.Image: The inverted image if allowed; otherwise, the original image.
+    """
     # Skip function if variable set to False
     if invert_var.get():
         # Convert image to RGB mode if it's not in RGB
@@ -182,10 +421,24 @@ def invert_image(image):
         inverted_image = Image.fromarray(inverted_np)
         
         return inverted_image
-    else :
-        return(image)
+    else:
+        return image
 
-def blend_images(image1, image2, alpha=0.45):
+def blend_images(image1: Image.Image, image2: Image.Image, alpha: float = 0.45) -> Image.Image:
+    """
+    Blends two images together using a specified alpha ratio.
+
+    Args:
+        image1 (Image.Image): The first image to blend.
+        image2 (Image.Image): The second image to blend.
+        alpha (float): The blending ratio, with a default value of 0.45.
+
+    Returns:
+        Image.Image: The blended image.
+    
+    Raises:
+        ValueError: If the images are not the same size.
+    """
     # Ensure images are the same size
     if image1.size != image2.size:
         raise ValueError("Images must be the same size for blending.")
@@ -199,7 +452,17 @@ def blend_images(image1, image2, alpha=0.45):
     
     return blended_image
 
-def concatenate_images(image1, image2):
+def concatenate_images(image1: Image.Image, image2: Image.Image) -> Image.Image:
+    """
+    Concatenates two images horizontally after ensuring they have the same height.
+
+    Args:
+        image1 (Image.Image): The first image to concatenate.
+        image2 (Image.Image): The second image to concatenate.
+
+    Returns:
+        Image.Image: The concatenated image.
+    """
     # Ensure both images are in RGB mode
     if image1.mode != 'RGB':
         image1 = image1.convert('RGB')
@@ -219,12 +482,32 @@ def concatenate_images(image1, image2):
     return concatenated_image
 
 class GifFrameCacher:
-    def __init__(self, gif_path):
+    """
+    A class to cache and manipulate frames of a GIF image.
+
+    Attributes:
+        gif (Image.Image): The GIF image object.
+        frame_cache (list): A list storing all frames of the GIF.
+
+    Methods:
+        _cache_all_frames(): Caches all frames of the GIF.
+        get_frame(frame_index: int) -> Image.Image: Retrieves a frame by its index.
+        get_total_frames() -> int: Returns the total number of cached frames.
+        resize_frames(width: int, height: int) -> None: Resizes all cached frames to the specified dimensions.
+    """
+
+    def __init__(self, gif_path: str):
+        """
+        Initializes the GifFrameCacher with the specified GIF file path.
+
+        Args:
+            gif_path (str): The file path to the GIF image.
+        """
         self.gif = Image.open(gif_path)
         self.frame_cache = []
         self._cache_all_frames()
 
-    def _cache_all_frames(self):
+    def _cache_all_frames(self) -> None:
         """Cache all frames of the GIF."""
         try:
             while True:
@@ -236,20 +519,36 @@ class GifFrameCacher:
             # When no more frames are available
             pass
 
-    def get_frame(self, frame_index):
-        """Retrieve a frame by its index."""
+    def get_frame(self, frame_index: int) -> Image.Image:
+        """Retrieve a frame by its index.
+
+        Args:
+            frame_index (int): The index of the frame to retrieve.
+
+        Returns:
+            Image.Image: The requested frame if it exists; otherwise, None.
+        """
         if 0 <= frame_index < len(self.frame_cache):
             return self.frame_cache[frame_index]
         else:
             print(f"Frame index {frame_index} is out of range.")
             return None
 
-    def get_total_frames(self):
-        """Get the total number of frames."""
+    def get_total_frames(self) -> int:
+        """Get the total number of cached frames.
+
+        Returns:
+            int: The total number of frames cached.
+        """
         return len(self.frame_cache)
     
-    def resize_frames(self, width, height):
-        """Resize all cached frames to the specified width and height."""
+    def resize_frames(self, width: int, height: int) -> None:
+        """Resize all cached frames to the specified width and height.
+
+        Args:
+            width (int): The new width for the frames.
+            height (int): The new height for the frames.
+        """
         resized_frames = []
         for frame in self.frame_cache:
             resized_frame = frame.resize((width, height), Image.Resampling.LANCZOS)
@@ -257,13 +556,16 @@ class GifFrameCacher:
         self.frame_cache = resized_frames
         print(f"All frames resized to {width}x{height}.")
 
-def triangular_scheduler(index, max_index):
+def triangular_scheduler(index: int, max_index: int) -> tuple[int, int]:
     """
     Generates an index that loops through values in a triangular pattern.
-    
-    :param index: The current index (starts from 0).
-    :param max_index: The maximum index for the triangular loop (exclusive).
-    :return: The new frame index and the updated internal index for the next call.
+
+    Args:
+        index (int): The current index (starts from 0).
+        max_index (int): The maximum index for the triangular loop (exclusive).
+
+    Returns:
+        tuple(int, int): A tuple containing the new frame index and the updated internal index for the next call.
     """
     # Triangular logic: increasing then decreasing
     if index < max_index:
@@ -276,12 +578,16 @@ def triangular_scheduler(index, max_index):
 
     return result, index
 
-def compute_bounding_box_center_and_size(image):
+def compute_bounding_box_center_and_size(image: Image.Image) -> tuple[int, int, int, int] | None:
     """
     Compute the center and size of the bounding box for a white object in a black image.
-    
-    :param image: Input image (PIL Image).
-    :return: A tuple containing the (center_x, center_y, width, height) of the bounding box.
+
+    Args:
+        image (Image.Image): Input image (PIL Image).
+
+    Returns:
+        tuple[int, int, int, int] | None: A tuple containing the (center_x, center_y, width, height) of the bounding box, 
+        or None if no white object is found.
     """
     # Convert the image to grayscale and then to a numpy array directly
     img_array = np.array(image.convert("L"))
@@ -309,7 +615,21 @@ def compute_bounding_box_center_and_size(image):
     
     return (center_x, center_y, width, height)
 
-def drawPerspective(image_height, image_width, box_height, box_width, center_x, center_y):
+def drawPerspective(image_height: int, image_width: int, box_height: int, box_width: int, center_x: int, center_y: int) -> Image.Image:
+    """
+    Draw a perspective effect based on an image size and bounding box.
+
+    Args:
+        image_height (int): The height of the image.
+        image_width (int): The width of the image.
+        box_height (int): The height of the box.
+        box_width (int): The width of the box.
+        center_x (int): The x-coordinate of the box center.
+        center_y (int): The y-coordinate of the box center.
+
+    Returns:
+        Image.Image: A PIL Image with the perspective effect.
+    """
     # Initialize a results array with zeros
     results = np.zeros((1, image_height, image_width, 3), dtype=np.float32)
 
@@ -354,13 +674,16 @@ def drawPerspective(image_height, image_width, box_height, box_width, center_x, 
 
     return pil_image
 
-def screen_blend(source_image, target_image):
+def screen_blend(source_image: Image.Image, target_image: Image.Image) -> Image.Image:
     """
     Blend the white values from a black and white source image onto a target RGB image using screen blending.
 
-    :param source_image: A PIL Image object (black and white).
-    :param target_image: A PIL Image object (target RGB for blending).
-    :return: A new PIL Image with screen blended values from the source image onto the target image.
+    Args:
+        source_image (Image.Image): A PIL Image object (black and white).
+        target_image (Image.Image): A PIL Image object (target RGB for blending).
+
+    Returns:
+        Image.Image: A new PIL Image with screen blended values from the source image onto the target image.
     """
     # Ensure the source image is in grayscale
     source_image = source_image.convert("L")  # Convert to grayscale if not already
@@ -399,12 +722,28 @@ def screen_blend(source_image, target_image):
 global looping
 looping = True
 
-def keyboard_listener():
+def keyboard_listener() -> None:
+    """
+    Listens for the 'esc' key press to set a stop signal.
+
+    This function blocks until the 'esc' key is pressed, then it sets a global variable
+    to signal that the application should stop running.
+    """
     global looping
     keyboard.wait('esc')  # Blocks until the 'esc' key is pressed
     looping = False      # Set the stop signal
-   
-def fullsize_image(img_width, img_height):
+
+def fullsize_image(img_width: int, img_height: int) -> tuple[int, int]:
+    """
+    Calculate the full size of an image that fits within the screen dimensions while maintaining aspect ratio.
+
+    Args:
+        img_width (int): The width of the image.
+        img_height (int): The height of the image.
+
+    Returns:
+        tuple[int, int]: A tuple containing the new height and width of the image that fits the screen.
+    """
     # Initialize Tkinter to get screen dimensions
     root = Tk()
     screen_width = root.winfo_screenwidth()
@@ -423,8 +762,15 @@ def fullsize_image(img_width, img_height):
         new_width = int(screen_height * aspect_ratio)
     
     return new_height, new_width
- 
-def image_updater():
+
+def image_updater() -> None:
+    """
+    Update the input and output images in the GUI.
+
+    This function updates the visuals in the GUI for both the input and output image slots.
+    The input image is only updated in debug mode, while the output image is resized and updated
+    in all cases.
+    """
     global input_slot
     global photo_input
     global input_image
@@ -434,38 +780,60 @@ def image_updater():
     global ndi_stream
     
     # Update GUI visuals
-    if debug_var.get() :            # Input only in debug mode
+    if debug_var.get():  # Input only in debug mode
         photo_input = ImageTk.PhotoImage(input_image)
         input_slot.config(image=photo_input)
         input_slot["image"] = photo_input
-    else :
-        output_image=output_image.resize((full_width,full_height),Image.Resampling.LANCZOS)
+    else:
+        output_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
+    
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
     output_slot["image"] = photo_output
     
-def classic_loop():
+def classic_loop() -> None:
+    """
+    Capture and process images in a continuous loop.
+
+    This function captures an image from the webcam, blends it with the last output image,
+    and transforms the blended image using a defined pipeline. The function updates the images
+    displayed in the GUI and continues to loop until the global `looping` variable is set to False.
+    """
     global webcam
     global input_image
     global output_image
     global pipeline
     global looping
     global process_window
+    
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
+    
     # Blend last output with new input
-    blended_image = blend_images(input_image, output_image.resize((image_size.get(),image_size.get())), float(blend_var.get()))
+    blended_image = blend_images(input_image, output_image.resize((image_size.get(), image_size.get())), float(blend_var.get()))
+    
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
-    image_updater()
-    if looping :
-        process_window.after(1,classic_loop)
-    else :   
-        process_window.destroy()
-        
-def classic_handler():
     
-    # Get screen size
+    # Update the GUI
+    image_updater()
+    
+    # Loop or destroy the process window
+    if looping:
+        process_window.after(1, classic_loop)
+    else:   
+        process_window.destroy()
+
+def classic_handler() -> None:
+    """
+    Initialize and start the classic image processing loop.
+
+    This function sets up the GUI, creates the image processing pipeline, and starts
+    capturing images in a loop. It also sets default prompts if none are provided.
+
+    The GUI is displayed in a separate window, and image updates are handled by
+    `classic_loop`.
+    """
     global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
@@ -505,13 +873,13 @@ def classic_handler():
     # Create the interface elements
     global input_slot
     global output_slot
-    if debug_var.get() :
+    if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
-    else :
+    else:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -524,30 +892,52 @@ def classic_handler():
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
-    print("exited loop and cleared thread")
-    
-def adapter_loop():
+    print("Exited loop and cleared thread")
+
+def adapter_loop() -> None:
+    """
+    Capture and process images in a continuous loop for the adapter mode.
+
+    This function captures an image from the webcam, blends it with the last output image,
+    and transforms the blended image using a defined pipeline with an image adapter. 
+    The function updates the images displayed in the GUI and continues to loop until the
+    global `looping` variable is set to False.
+    """
     global webcam
     global input_image
     global output_image
     global pipeline
     global looping
     global process_window
+    
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
+    
     # Blend last output with new input
-    blended_image = blend_images(input_image, output_image.resize((image_size.get(),image_size.get())), float(blend_var.get()))
+    blended_image = blend_images(input_image, output_image.resize((image_size.get(), image_size.get())), float(blend_var.get()))
+    
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
-    image_updater()
-    if looping :
-        process_window.after(1,adapter_loop)
-    else :   
-        process_window.destroy()
-        
-def adapter_handler():
     
-    # Get screen size
+    # Update the GUI
+    image_updater()
+    
+    # Loop or destroy the process window
+    if looping:
+        process_window.after(1, adapter_loop)
+    else:   
+        process_window.destroy()
+
+def adapter_handler() -> None:
+    """
+    Initialize and start the adapter image processing loop.
+
+    This function sets up the GUI, creates the image processing pipeline with an image adapter,
+    and starts capturing images in a loop. It sets default prompts and adapter images if none are provided.
+
+    The GUI is displayed in a separate window, and image updates are handled by
+    `adapter_loop`.
+    """
     global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
@@ -557,9 +947,10 @@ def adapter_handler():
     if adapter_image_var.get() == "":
         adapter_image_var.set("Images/underwater.png")
         adapter_image_slot = Image.open("Images/underwater.png")
-        adapter_image_slot = resize_longer_side(adapter_image_slot,64)
+        adapter_image_slot = resize_longer_side(adapter_image_slot, 64)
         adapter_imagetk_slot = ImageTk.PhotoImage(adapter_image_slot)
-        adapter_preview["image"]=adapter_imagetk_slot
+        adapter_preview["image"] = adapter_imagetk_slot
+
     # Begin looping
     global looping
     looping = True
@@ -568,6 +959,7 @@ def adapter_handler():
     global pipeline
     pipeline = SDPipeline()
     pipeline.accelerate_pipe()
+    
     adapter_image = load_image(adapter_image_var.get())
     pipeline.add_ip_adapter(adapter_image)
 
@@ -594,28 +986,38 @@ def adapter_handler():
     # Create the interface elements
     global input_slot
     global output_slot
-    if debug_var.get() :
+    if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
-    else :
+    else:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)
         process_window.columnconfigure(0, weight=1, minsize=75)
         
-    # Run classic_loop frequently to update images
+    # Run adapter_loop frequently to update images
     process_window.after(1, adapter_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
-    print("exited loop and cleared thread")
+    print("Exited loop and cleared thread")
     
-def background_loop():
+def background_loop() -> None:
+    """
+    Capture and process images in a continuous loop for background image processing.
+
+    This function captures an image from the webcam, blends it with the last output image,
+    retrieves a frame from a cached GIF, blends it with the input image, and transforms the
+    blended image using a defined pipeline. The function updates the images displayed in the GUI
+    and continues to loop until the global `looping` variable is set to False.
+
+    The blending of images and frames allows for dynamic background integration in the output image.
+    """
     global webcam
     global input_image
     global output_image
@@ -625,28 +1027,47 @@ def background_loop():
     global gif_cacher
     global index
     global max_index
+    
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
+    
     # Blend last output with new input
-    blended_image = blend_images(input_image, output_image.resize((image_size.get(),image_size.get())), float(blend_var.get()))
+    blended_image = blend_images(input_image, output_image.resize((image_size.get(), image_size.get())), float(blend_var.get()))
+    
     # Get the correct index
     frame_index, index = triangular_scheduler(index, max_index)
-    #print(frame_index,index,max_index)
+    
     # Retrieve gif frame
     background_frame = gif_cacher.get_frame(frame_index)
+    
     # Blend frame with the input
     background_input = blend_images(blended_image, background_frame, 0.20)
+    
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=background_input)
-    image_updater()
-    if looping :
-        process_window.after(1,background_loop)
-    else :   
-        process_window.destroy()
-        
-def background_handler():
     
-    # Get screen size
+    # Update the GUI
+    image_updater()
+    
+    # Loop or destroy the process window
+    if looping:
+        process_window.after(1, background_loop)
+    else:   
+        process_window.destroy()
+
+def background_handler() -> None:
+    """
+    Initialize and start the background image processing loop.
+
+    This function sets up the GUI, creates the image processing pipeline with an image adapter,
+    and starts capturing images in a loop. It sets default prompts and GIF paths if none are provided.
+
+    The GUI is displayed in a separate window, and image updates are handled by
+    `background_loop`. This allows for dynamic backgrounds to be blended with the main image.
+
+    Returns:
+        None
+    """
     global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
@@ -666,6 +1087,7 @@ def background_handler():
     global pipeline
     pipeline = SDPipeline()
     pipeline.accelerate_pipe()
+    
     adapter_image = load_image(adapter_image_var.get())
     pipeline.add_ip_adapter(adapter_image)
 
@@ -676,9 +1098,9 @@ def background_handler():
     global gif_cacher
     global max_index
     global index
-    gif_cacher = GifFrameCacher(background_gif_var.get()) # Cache every frame of the gif for easier access later on
-    gif_cacher.resize_frames(image_size.get(),image_size.get()) # Resize every frame to the correct size
-    max_index = gif_cacher.get_total_frames()-1
+    gif_cacher = GifFrameCacher(background_gif_var.get())  # Cache every frame of the gif for easier access later on
+    gif_cacher.resize_frames(image_size.get(), image_size.get())  # Resize every frame to the correct size
+    max_index = gif_cacher.get_total_frames() - 1
     index = 0
 
     # Generate the interface first
@@ -700,56 +1122,84 @@ def background_handler():
     # Create the interface elements
     global input_slot
     global output_slot
-    if debug_var.get() :
+    if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
-    else :
+    else:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)
         process_window.columnconfigure(0, weight=1, minsize=75)
 
-    # Run classic_loop frequently to update images
+    # Run background_loop frequently to update images
     process_window.after(1, background_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
-    print("exited loop and cleared thread")
+    print("Exited loop and cleared thread")
 
-def perspective_loop():
+def perspective_loop() -> None:
+    """
+    Continuously captures images from the webcam and processes them for perspective transformation.
+
+    This function captures an image, computes the bounding box for the main object in the image,
+    draws a perspective depth map based on the bounding box, loads the control image into the pipeline,
+    and transforms the image using the pipeline. The output image is blended with the input image
+    and updated in the GUI. The function loops until the global `looping` variable is set to False.
+
+    Returns:
+        None
+    """
     global webcam
     global input_image
     global output_image
     global pipeline
     global looping
     global process_window
+    
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
+    
     # Compute bounding box
     bbox_center_and_size = compute_bounding_box_center_and_size(input_image)
     if bbox_center_and_size:
         center_x, center_y, box_width, box_height = bbox_center_and_size
+    
     # Draw ControlNet depth map
-    perspective = drawPerspective(image_size.get(),image_size.get(),box_height,box_width,center_x,center_y)
+    perspective = drawPerspective(image_size.get(), image_size.get(), box_height, box_width, center_x, center_y)
+    
     # Load the control image in the pipeline
     pipeline.load_control_image(perspective)
+    
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get())
-    output_image = screen_blend(input_image,output_image)
-    image_updater()
-    if looping :
-        process_window.after(1,perspective_loop)
-    else :   
-        process_window.destroy()
-        
-def perspective_handler():
+    output_image = screen_blend(input_image, output_image)
     
-    # Get screen size
+    # Update the GUI
+    image_updater()
+    
+    # Loop or destroy the process window
+    if looping:
+        process_window.after(1, perspective_loop)
+    else:   
+        process_window.destroy()
+
+def perspective_handler() -> None:
+    """
+    Initializes and starts the perspective transformation image processing loop.
+
+    This function sets up the GUI, creates the image processing pipeline,
+    and starts capturing images in a loop. It sets a default prompt if none is provided
+    and optionally adds an image adapter to the pipeline.
+
+    Returns:
+        None
+    """
     global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
@@ -766,6 +1216,7 @@ def perspective_handler():
     global adapter_image
     pipeline = CNPipeline()
     pipeline.accelerate_pipe()
+    
     if adapter_image_var.get() != "":
         adapter_image = load_image(adapter_image_var.get())
         pipeline.add_ip_adapter(adapter_image)
@@ -793,34 +1244,60 @@ def perspective_handler():
     # Create the interface elements
     global input_slot
     global output_slot
-    if debug_var.get() :
+    if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
-    else :
+    else:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)
         process_window.columnconfigure(0, weight=1, minsize=75)
         
-    # Run classic_loop frequently to update images
+    # Run perspective_loop frequently to update images
     process_window.after(1, perspective_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
-    print("exited loop and cleared thread")
+    print("Exited loop and cleared thread")
 
-def resize_longer_side(image,size):
-    scale_factor = size/max(image.size[0],image.size[1])
-    height=int(scale_factor*image.size[0])
-    width=int(scale_factor*image.size[1])
-    return(image.resize((height,width)))
+def resize_longer_side(image: Image.Image, size: int) -> Image.Image:
+    """
+    Resize the given image to have the specified size on its longer side.
+
+    The image is resized while maintaining its aspect ratio. The longer side of the image
+    is scaled to the specified size, and the shorter side is adjusted accordingly.
+
+    Args:
+        image (Image.Image): The image to resize.
+        size (int): The target size for the longer side of the image.
+
+    Returns:
+        Image.Image: The resized image.
+    """
+    scale_factor = size / max(image.size[0], image.size[1])
+    height = int(scale_factor * image.size[0])
+    width = int(scale_factor * image.size[1])
+    return image.resize((height, width))
 
 def crop_and_resize(image: Image.Image, size: int) -> Image.Image:
+    """
+    Crop the given image to a centered square and resize it to the specified size.
+
+    The image is cropped to a square shape by taking the center of the image,
+    and then resized to the specified dimensions.
+
+    Args:
+        image (Image.Image): The image to crop and resize.
+        size (int): The target size for the cropped image.
+
+    Returns:
+        Image.Image: The cropped and resized square image.
+    """
     # Get the dimensions of the input image
     width, height = image.size
     
@@ -859,115 +1336,185 @@ presets = {
     "13":["waterfall","low quality, blur, nsfw, text, watermark","","","True","Standard Effect"],
            }
 
-def load_preset():
+def load_preset() -> None:
+    """
+    Load the selected preset from the presets dictionary and update the application state.
+
+    This function retrieves the selected preset, sets the corresponding prompts, and updates
+    the adapter and background images in the application. It also updates the invert and 
+    effect type settings based on the selected preset.
+
+    Returns:
+        None
+    """
     global adapter_image_slot
     global adapter_imagetk_slot
     global background_slot
     global backgroundtk_slot
     preset_selection = preset_var.get()
     chosen_preset = presets[preset_selection]
+
+    # Update prompts and image paths
     positive_prompt_var.set(chosen_preset[0])
     negative_prompt_var.set(chosen_preset[1])
     adapter_image_var.set(chosen_preset[2])
-    if chosen_preset[2] == "" :
-        adapter_image_slot = Image.new("RGB",(128,128))               # Set empty image in the preview
+
+    # Update adapter image preview
+    if chosen_preset[2] == "":
+        adapter_image_slot = Image.new("RGB", (128, 128))  # Set empty image in the preview
         adapter_imagetk_slot = ImageTk.PhotoImage(adapter_image_slot)
-        adapter_preview["image"]=adapter_imagetk_slot
-    else :
-        adapter_image_slot = Image.open(chosen_preset[2])               # Set the image in the preview
-        adapter_image_slot = crop_and_resize(adapter_image_slot,128)
+        adapter_preview["image"] = adapter_imagetk_slot
+    else:
+        adapter_image_slot = Image.open(chosen_preset[2])  # Set the image in the preview
+        adapter_image_slot = crop_and_resize(adapter_image_slot, 128)
         adapter_imagetk_slot = ImageTk.PhotoImage(adapter_image_slot)
-        adapter_preview["image"]=adapter_imagetk_slot
+        adapter_preview["image"] = adapter_imagetk_slot
+
+    # Update background gif
     background_gif_var.set(chosen_preset[3])
-    if chosen_preset[3] == "" :
-        background_slot = Image.new("RGB",(128,128))               # Set empty gif in the preview
+    if chosen_preset[3] == "":
+        background_slot = Image.new("RGB", (128, 128))  # Set empty gif in the preview
         backgroundtk_slot = ImageTk.PhotoImage(background_slot)
-        background_preview["image"]=backgroundtk_slot
-    else :
-        background_slot = Image.open(chosen_preset[2])               # Set the gif in the preview
-        background_slot = crop_and_resize(background_slot,128)
+        background_preview["image"] = backgroundtk_slot
+    else:
+        background_slot = Image.open(chosen_preset[3])  # Set the gif in the preview
+        background_slot = crop_and_resize(background_slot, 128)
         backgroundtk_slot = ImageTk.PhotoImage(background_slot)
-        background_preview["image"]=backgroundtk_slot
-    if chosen_preset[4] == "False":
-        invert_var.set(False)
-    else :
-        invert_var.set(True)
-    
-    effect_type_var.set(chosen_preset[-1]) # Last element is always the effect type.
-        
-def upload_adapter_image():
-    img_name = askopenfilename() # Open explorer window
+        background_preview["image"] = backgroundtk_slot
+
+    # Update invert variable and effect type
+    invert_var.set(chosen_preset[4] == "True")
+    effect_type_var.set(chosen_preset[-1])  # Last element is always the effect type.
+
+def upload_adapter_image() -> None:
+    """
+    Open a file dialog to upload an adapter image and update the preview.
+
+    This function allows the user to select an image file from their filesystem,
+    opens the selected image, crops and resizes it, and then updates the adapter 
+    image preview in the application.
+
+    Returns:
+        None
+    """
+    img_name = askopenfilename()  # Open explorer window
     global adapter_image_slot
     global adapter_imagetk_slot
     adapter_image_slot = Image.open(img_name)
-    adapter_image_slot = crop_and_resize(adapter_image_slot,128)
+    adapter_image_slot = crop_and_resize(adapter_image_slot, 128)
     adapter_imagetk_slot = ImageTk.PhotoImage(adapter_image_slot)
-    adapter_preview["image"]=adapter_imagetk_slot
+    adapter_preview["image"] = adapter_imagetk_slot
     adapter_image_var.set(img_name)
     
-def cycle_gif():
+def cycle_gif() -> None:
+    """
+    Cycle through the frames of the loaded GIF and update the background image preview.
+
+    This function retrieves the next frame from the GIF stored in `np_gif`, resizes it,
+    and updates the preview displayed in the application. If the end of the GIF is reached,
+    it wraps around to the first frame.
+
+    Returns:
+        None
+    """
     global background_slot
     global backgroundtk_slot
     global np_gif
     global gif_index
-    global gif_delay
-    try :
-        gif_index=gif_index+1
-        background_slot = Image.fromarray(np_gif[gif_index,:,:,:],'RGB')
-        background_slot = resize_longer_side(background_slot,128)
-    except :
-        gif_index=0
-        background_slot = Image.fromarray(np_gif[gif_index,:,:,:],'RGB')
-        background_slot = resize_longer_side(background_slot,128)
-    backgroundtk_slot=ImageTk.PhotoImage(background_slot)
-    background_preview["image"]=backgroundtk_slot
 
-def cycle_gif_loop():
+    try:
+        gif_index += 1
+        background_slot = Image.fromarray(np_gif[gif_index, :, :, :], 'RGB')
+        background_slot = resize_longer_side(background_slot, 128)
+    except IndexError:  # Catch index errors specifically
+        gif_index = 0
+        background_slot = Image.fromarray(np_gif[gif_index, :, :, :], 'RGB')
+        background_slot = resize_longer_side(background_slot, 128)
+
+    backgroundtk_slot = ImageTk.PhotoImage(background_slot)
+    background_preview["image"] = backgroundtk_slot
+
+def cycle_gif_loop() -> None:
+    """
+    Continuously cycle through the GIF frames in a loop.
+
+    This function repeatedly calls `cycle_gif` to update the background image
+    at intervals determined by `gif_delay`.
+
+    Returns:
+        None
+    """
     while True:
         cycle_gif()
-        time.sleep(gif_delay/1000)
+        time.sleep(gif_delay / 1000)
 
-def upload_gif():
+def upload_gif() -> None:
+    """
+    Open a file dialog to upload a GIF and prepare it for cycling.
+
+    This function allows the user to select a GIF file from their filesystem,
+    reads its frames into a NumPy array, and updates the background image preview
+    in the application. It also starts a thread to continuously cycle through
+    the GIF frames.
+
+    Returns:
+        None
+    """
     global background_slot
     global backgroundtk_slot
     global np_gif
     global gif_delay
-    
-    gif_path = askopenfilename() # Open explorer window
-    
+
+    gif_path = askopenfilename()  # Open explorer window
+
     background_gif_var.set(gif_path)
-    
-    with Image.open(gif_path) as im :
-        gif_delay=im.info["duration"]
-        np_gif=np.array(im)
-        np_gif=np.resize(np_gif,(1,im.size[1],im.size[0],3))
+
+    with Image.open(gif_path) as im:
+        gif_delay = im.info["duration"]
+        np_gif = np.array(im)
+        np_gif = np.resize(np_gif, (1, im.size[1], im.size[0], 3))
+
         try:
-            while 1:
+            while True:
                 im.seek(im.tell() + 1)
-                expand_frame=np.expand_dims(np.array(im),axis=0)
-                np_gif=np.concatenate((np_gif,expand_frame))
+                expand_frame = np.expand_dims(np.array(im), axis=0)
+                np_gif = np.concatenate((np_gif, expand_frame))
         except EOFError:
             pass
-    background_slot = Image.fromarray(np_gif[0,:,:,:],'RGB')
-    background_slot = resize_longer_side(background_slot,128)
+
+    background_slot = Image.fromarray(np_gif[0, :, :, :], 'RGB')
+    background_slot = resize_longer_side(background_slot, 128)
     backgroundtk_slot = ImageTk.PhotoImage(background_slot)
-    background_preview["image"]=backgroundtk_slot
-    
-    # Open a thread to update the gif in the preview.
-    try :
-        gif_thread.join() # Make sure we don't duplicate the gif thread and close it if it already exists.
-    except :
+    background_preview["image"] = backgroundtk_slot
+
+    # Open a thread to update the GIF in the preview.
+    try:
+        gif_thread.join()  # Ensure we don't duplicate the gif thread and close it if it already exists.
+    except:
         pass
     gif_thread = threading.Thread(target=cycle_gif_loop)
     gif_thread.daemon = True
     gif_thread.start()
 
-def send_image_server():
+def send_image_server() -> Generator[bytes, None, None]:
+    """
+    A generator function that continuously sends the current output image
+    to a server as JPEG frames.
+
+    The function converts the current `output_image` from RGB to BGR format,
+    encodes it as a JPEG image, and yields the image data in a format suitable
+    for streaming over HTTP. This is typically used for serving images in a
+    web application.
+
+    Yields:
+        bytes: The JPEG image data in a multipart response format.
+    """
     global output_image
     print("Executing send_image_server")
+    
     while True:
         if output_image is not None:
-            numpy_image = np.array(output_image)# Convert from RGB to BGR
+            numpy_image = np.array(output_image)  # Convert from RGB to BGR
             bgr_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
             _, buffer = cv2.imencode('.jpg', bgr_image)
             frame = buffer.tobytes()
