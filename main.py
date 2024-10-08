@@ -1564,26 +1564,32 @@ main_window.title("Settings")
 # Font definitions
 font_size=3
 title_font=font.Font(name="Title", family = "Helvetica", size=font_size*6) #Defining fonts for the interface
-large_font=font.Font(name="Large", family = "Helvetica", size=font_size*5) #Defining fonts for the interface
+large_font=font.Font(name="Large", family = "Helvetica", size=font_size*5) 
 medium_font=font.Font(name="Medium", family = "Helvetica", size=font_size*3)
 
 # Frames creation
 header_frame = tk.Frame(main_window)
-header_frame.grid(row=0,column=0)
+header_frame.grid(row=0, column=0, sticky="nsew")
 parameters_frame = tk.Frame(main_window)
-parameters_frame.grid(row=1,column=0)
+parameters_frame.grid(row=1, column=0, sticky="nsew")
 standard_parameters_frame = tk.Frame(parameters_frame)
-standard_parameters_frame.grid(row=0,column=0)
+standard_parameters_frame.grid(row=0, column=0, sticky="nsew")
 adapter_parameters_frame = tk.Frame(parameters_frame)
-adapter_parameters_frame.grid(row=0,column=1)
+adapter_parameters_frame.grid(row=0, column=1, sticky="nsew")
 adapter_filename_frame = tk.Frame(adapter_parameters_frame)
-adapter_filename_frame.grid(row=1,column=0)
+adapter_filename_frame.grid(row=1, column=0, sticky="nsew")
 background_frame = tk.Frame(adapter_parameters_frame)
-background_frame.grid(row=2,column=0)
+background_frame.grid(row=2, column=0, sticky="nsew")
 perspective_parameters_frame = tk.Frame(parameters_frame)
-perspective_parameters_frame.grid(row=0,column=2)
+perspective_parameters_frame.grid(row=0, column=2, sticky="nsew")
 buttons_frame = tk.Frame(main_window)
-buttons_frame.grid(row=2,column=0)
+buttons_frame.grid(row=2, column=0, sticky="nsew")
+
+# Configure rows and columns for each frame
+for frame in [header_frame, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
+              adapter_filename_frame, background_frame, perspective_parameters_frame, buttons_frame]:
+    frame.grid_rowconfigure(0, weight=1)  # This can be adjusted if you have more rows
+    frame.grid_columnconfigure(0, weight=1)  # This can be adjusted if you have more columns
 
 # Standard Parameters
 tk.Label(standard_parameters_frame,text="Parameters for Standard FXs",font="Large").grid(row=0,column=0,sticky="nsew")
@@ -1637,6 +1643,10 @@ tk.Button(buttons_frame, text="Standard FXs",command=classic_handler,font="Large
 tk.Button(buttons_frame, text="Adapter FXs",command=adapter_handler,font="Large").grid(row=0,column=2,sticky="nsew")
 tk.Button(buttons_frame, text="Background FXs",command=background_handler,font="Large").grid(row=0,column=3,sticky="nsew")
 tk.Button(buttons_frame, text="Perspective FXs",command=perspective_handler,font="Large").grid(row=0,column=4,sticky="nsew")
+
+# Configure weights for responsive layout
+main_window.grid_rowconfigure([0,1,2], weight=1)
+main_window.grid_columnconfigure(0, weight=1)
 
 main_window.mainloop()
 

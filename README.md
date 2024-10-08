@@ -36,3 +36,4 @@ An input field should appear, asking for a model path. This is where the models 
 ### Main Interface
 A first Tkinter interface should open up with a selection of parameters.
 Some presets have been defined and can be accessed by using the spinbox on the left. 
+![Location of the preset selection button](/assets/screen-preset.PNG)
