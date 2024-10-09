@@ -92,9 +92,9 @@ Each of them requires different input fields. To explore each possibility, it is
 
 **List of Inputs per effect :**
 
-| Effect Type       | Positive Prompt | Negative Prompt           | Adapter Image        | Background GIF        |
-|-------------------|------------------|---------------------------|-----------------------|-----------------------|
-| **Standard effect**    | ✓                | ✓                         |                       |                       |
-| **Adapter effect**     | ✓                | ✓                         | ✓                     |                       |
-| **Background effect**  | ✓                | ✓                         | ✓                     | ✓                     |
-| **Perspective prompt** | ✓                | ✓                         | _(optional)_          |                       |
+| Effect Type       | Positive Prompt | Negative Prompt           | Adapter Image        | Background GIF        | Blending Value |
+|-------------------|------------------|---------------------------|-----------------------|-----------------------|-----------------|
+| **Standard effect**    | ✓                | ✓                         |                       |                       | ✓               |
+| **Adapter effect**     | ✓                | ✓                         | ✓                     |                       | ✓               |
+| **Background effect**  | ✓                | ✓                         | ✓                     | ✓                     | ✓               |
+| **Perspective effect** | ✓                | ✓                         | _(optional)_          |                       |                 |
