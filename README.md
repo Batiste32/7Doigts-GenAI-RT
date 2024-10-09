@@ -111,4 +111,4 @@ You can use a Flask server to view your output in real time on any device by unc
 
 You will then be able to connect to the server on the ip of the server, port `3142` and adding `/video_feed`
 (ex : `123.456.789.0:3142/video_feed`)
-Note : you will only be able to view the output, **not the output**.
+Note : you will only be able to view the output, **not the input**.
