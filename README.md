@@ -80,6 +80,8 @@ If the debug mode is activated, the input will be shown with the output.
     <img src="/assets/screen-preview-debug.PNG" alt="Preview in debug mode" height="150"/>
 </p>
 
+Note : For this example, I use a kinect camera with a body tracking algorithm, which gives this black and white input, ideal for abstract transformation. If you use a standard webcam, it might be preferable to use more "realistic" prompts.
+
 ### The different effects
 
 At the bottom of the main interface, there is a collection of buttons to start the different generation styles :
