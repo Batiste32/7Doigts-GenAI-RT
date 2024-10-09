@@ -12,10 +12,11 @@ from optimum.onnxruntime import ORTStableDiffusionXLPipeline
 import threading
 from diffusers.models.attention_processor import AttnProcessor2_0
 from transformers import CLIPVisionModelWithProjection
+import subprocess
 
 # GUI for .py only
 import tkinter as tk
-from tkinter import ttk, Tk, font
+from tkinter import ttk, Tk, font, colorchooser
 from tkinter.filedialog import askopenfilename
 from PIL import ImageTk, GifImagePlugin
 import time
@@ -30,14 +31,15 @@ open_file = open("config.txt", "r")
 model_path = open_file.readline()
 open_file.close()
 if model_path == "" : # Check if path defined, if not, ask the user
-    open_file = open("config.txt", "w")
     model_path = input("Write path to where models should be downloaded")
+    open_file = open("config.txt", "w")
     open_file.writelines(model_path)
     open_file.close()
 print(model_path)
 
-os.environ["HF_HOME"] = model_path
-os.environ["TRANSFORMERS_CACHE"] = model_path    # path to downloaded models
+os.environ['HF_HOME'] = model_path
+os.environ['TRANSFORMERS_CACHE'] = model_path    # path to downloaded models
+subprocess.run('setx HF_HOME '+model_path,shell=True)
 
 torch.backends.cuda.matmul.allow_tf32 = True       # use 32 precision floats
 
@@ -847,7 +849,7 @@ def classic_handler() -> None:
 
     # Create Pipeline
     global pipeline
-    pipeline = SDPipeline()
+    pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
 
     # Start the keyboard listener in a separate thread
@@ -957,7 +959,7 @@ def adapter_handler() -> None:
 
     # Create Pipeline
     global pipeline
-    pipeline = SDPipeline()
+    pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
     adapter_image = load_image(adapter_image_var.get())
@@ -1085,7 +1087,7 @@ def background_handler() -> None:
 
     # Create Pipeline
     global pipeline
-    pipeline = SDPipeline()
+    pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
     adapter_image = load_image(adapter_image_var.get())
@@ -1161,6 +1163,7 @@ def perspective_loop() -> None:
     global pipeline
     global looping
     global process_window
+    global center_x, center_y, box_width, box_height
     
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
@@ -1178,7 +1181,11 @@ def perspective_loop() -> None:
     
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get())
-    output_image = screen_blend(input_image, output_image)
+    
+    # Color the white image
+    colored_input = color_white_pixels(input_image)
+    
+    output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
     image_updater()
@@ -1214,8 +1221,15 @@ def perspective_handler() -> None:
     # Create Pipeline
     global pipeline
     global adapter_image
-    pipeline = CNPipeline()
+    pipeline = CNPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
+    
+    # Initialize box values
+    global center_x, center_y, box_width, box_height
+    center_x = int(image_size.get())/2
+    center_y = center_x
+    box_width = 1
+    box_height = box_width
     
     if adapter_image_var.get() != "":
         adapter_image = load_image(adapter_image_var.get())
@@ -1318,22 +1332,111 @@ def crop_and_resize(image: Image.Image, size: int) -> Image.Image:
     
     return resized_image
 
-# Presets : positive_prompt, negative_prompt, adapter_image, background_gif, should_invert_image_?, type_of_effect
+def choose_color():
+    """
+    Opens a color chooser dialog for the user to select a color. 
+    The selected color is then converted from RGB (0-255) to a tuple of floats (0-1)
+    and stored in the global variable `color_code`. 
+    Additionally, it updates the color label in the UI to display the selected color.
+
+    Returns:
+        None
+    """
+    global color_code
+    selected_color = colorchooser.askcolor(title="Choose a color")
+    if selected_color and selected_color[0]:  # Check if a color was selected
+        color_code = tuple(c / 255 for c in selected_color[0])  # Convert RGB to tuple of floats (0 to 1)
+        color_label.config(text=f"Selected color: {selected_color[1]}", bg=selected_color[1])
+
+def color_white_pixels(image: Image.Image) -> Image.Image:
+    """
+    Replaces white pixels in an image with a specified color.
+
+    Args:
+        image (Image.Image): The input image in which white pixels will be replaced.
+
+    Returns:
+        Image.Image: The modified image with white pixels replaced by the specified color.
+    """
+    global color_code  # Ensure color_code is recognized as a global variable
+
+    # Convert the image to RGBA (if not already in that mode)
+    img = image.convert("RGBA")
+
+    # Get the data of the image
+    data = img.getdata()
+
+    # Create a new list to hold the modified pixel data
+    new_data = []
+
+    # Loop through each pixel in the image
+    for item in data:
+        # Change all white (also shades of white)
+        if item[0] > 240 and item[1] > 240 and item[2] > 240:  # Adjust threshold as needed
+            # Replace white pixel with the specified color
+            new_data.append((int(color_code[0] * 255), int(color_code[1] * 255), int(color_code[2] * 255), item[3]))  # Keep the original alpha
+        else:
+            new_data.append(item)
+
+    # Update the image data
+    img.putdata(new_data)
+
+    return img  # Return the modified image
+
+def paste_color_pixels(img1: Image.Image, img2: Image.Image) -> Image.Image:
+    """
+    Paste pixels from img1 to img2 where img1's pixels match the color_code.
+
+    Parameters:
+        img1 (Image.Image): The source image to take pixels from.
+        img2 (Image.Image): The destination image to paste pixels onto.
+
+    Returns:
+        Image.Image: The modified img2 with pixels from img1 pasted on it.
+    """
+    global color_code
+
+    # Convert images to RGBA if they are not already in that mode
+    img1 = img1.convert("RGBA")
+    img2 = img2.convert("RGBA")
+
+    # Get the data of both images
+    data1 = img1.getdata()
+    data2 = img2.getdata()
+
+    # Create a new list to hold the modified pixel data for img2
+    new_data = []
+
+    # Loop through each pixel in img1
+    for i, item in enumerate(data1):
+        # Check if the pixel matches the color_code
+        if (item[0] / 255, item[1] / 255, item[2] / 255) == color_code:  # Normalize to 0-1 range
+            new_data.append(item)  # Keep the pixel from img1
+        else:
+            new_data.append(data2[i])  # Keep the pixel from img2
+
+    # Create a new image for the result
+    result_img = Image.new("RGBA", img2.size)
+    result_img.putdata(new_data)
+
+    return result_img  # Return the modified img2
+
+# Presets : positive_prompt, negative_prompt, adapter_image, background_gif, should_invert_image_?, blend_value, type_of_effect
 presets = {
     "0":["","","","",""],
-    "1":["abstract, sparks, shiny, electricity, gold","low quality, blur, nsfw, text, watermark","","","True","Standard Effect"],
-    "2":["abstract, cobweb, silk, threads, strings","low quality, blur, nsfw, text, watermark","","","True","Standard Effect"],
-    "3":["paper origami, abstract","low quality, blur, nsfw, text, watermark","","","True","Standard Effect"],
-    "4":["side view of dark modern skyscrapers with an opening to the sky in the middle","low quality, blur, nsfw, text, watermark","Images/building.png","","True","Adapter Effect"],
-    "5":["abstract particles","low quality, blur, nsfw, text, watermark","Images/particles.png","","True","Adapter Effect"],
-    "6":["abstract, dunes made of sand","low quality, blur, nsfw, text, watermark","Images/dunes.png","","True","Adapter Effect"],
-    "7":["waterfall in the middle of a forest","low quality, blur, nsfw, text, watermark","Images/forest.png","Images/forest.gif","True","Background Effect"],
-    "8":["underwater landscape","low quality, blur, nsfw, text, watermark","Images/underwater.png","Images/underwater.gif","True","Background Effect"],
-    "9":["abstract, galaxy, plasma, fluid shapes","low quality, blur, nsfw, text, watermark","Images/plasma.png","Images/plasma.gif","False","Background Effect"],
-    "10":["perspective, brick wall, highly detailed","low quality, blur, nsfw, text, watermark","Images/bricks.png","","True","Perspective Effect"],
-    "11":["perspective, abstract wallpaper, bright yellow and purple, highly detailed, intricate patterns","low quality, blur, nsfw, text, watermark","","","True","Perspective Effect"],
-    "12":["waterfall in the middle of a rock cliff","low quality, blur, nsfw, text, watermark","Images/rock_cliff.png","Images/rock_cliff.gif","True","Background Effect"],
-    "13":["waterfall","low quality, blur, nsfw, text, watermark","","","True","Standard Effect"],
+    "1":["abstract, sparks, shiny, electricity, gold","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
+    "2":["abstract, cobweb, silk, threads, strings","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
+    "3":["paper origami, abstract","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
+    "4":["side view of dark modern skyscrapers with an opening to the sky in the middle","low quality, blur, nsfw, text, watermark","Images/building.png","","True",0.55,"Adapter Effect"],
+    "5":["abstract particles","low quality, blur, nsfw, text, watermark","Images/particles.png","","True",0.55,"Adapter Effect"],
+    "6":["abstract, dunes made of sand","low quality, blur, nsfw, text, watermark","Images/dunes.png","","True",0.55,"Adapter Effect"],
+    "7":["waterfall in the middle of a forest","low quality, blur, nsfw, text, watermark","Images/forest.png","Images/forest.gif","True",0.4,"Background Effect"],
+    "8":["underwater landscape","low quality, blur, nsfw, text, watermark","Images/underwater.png","Images/underwater.gif","True",0.4,"Background Effect"],
+    "9":["abstract, galaxy, plasma, fluid shapes","low quality, blur, nsfw, text, watermark","Images/plasma.png","Images/plasma.gif","False",0.55,"Background Effect"],
+    "10":["perspective, brick wall, highly detailed","low quality, blur, nsfw, text, watermark","Images/bricks.png","","True",0.55,"Perspective Effect"],
+    "11":["perspective, abstract wallpaper, bright yellow and purple, highly detailed, intricate patterns","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
+    "12":["waterfall in the middle of a rock cliff","low quality, blur, nsfw, text, watermark","Images/rock_cliff.png","Images/rock_cliff.gif","True",0.55,"Background Effect"],
+    "13":["waterfall","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
            }
 
 def load_preset() -> None:
@@ -1382,8 +1485,9 @@ def load_preset() -> None:
         backgroundtk_slot = ImageTk.PhotoImage(background_slot)
         background_preview["image"] = backgroundtk_slot
 
-    # Update invert variable and effect type
+    # Update invert variable, blend value and effect type
     invert_var.set(chosen_preset[4] == "True")
+    blend_var.set(chosen_preset[5])
     effect_type_var.set(chosen_preset[-1])  # Last element is always the effect type.
 
 def upload_adapter_image() -> None:
@@ -1580,19 +1684,28 @@ adapter_filename_frame = tk.Frame(adapter_parameters_frame)
 adapter_filename_frame.grid(row=1, column=0, sticky="nsew")
 background_frame = tk.Frame(adapter_parameters_frame)
 background_frame.grid(row=2, column=0, sticky="nsew")
-perspective_parameters_frame = tk.Frame(parameters_frame)
-perspective_parameters_frame.grid(row=0, column=2, sticky="nsew")
+perspective_frame = tk.Frame(parameters_frame)
+perspective_frame.grid(row=0, column=2, sticky="nsew")
 buttons_frame = tk.Frame(main_window)
 buttons_frame.grid(row=2, column=0, sticky="nsew")
 
-# Configure rows and columns for each frame
-for frame in [header_frame, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
-              adapter_filename_frame, background_frame, perspective_parameters_frame, buttons_frame]:
-    frame.grid_rowconfigure(0, weight=1)  # This can be adjusted if you have more rows
-    frame.grid_columnconfigure(0, weight=1)  # This can be adjusted if you have more columns
+header_frame.lift()
+parameters_frame.lift()
+standard_parameters_frame.lift()
+adapter_parameters_frame.lift()
+adapter_filename_frame.lift()
+background_frame.lift()
+buttons_frame.lift()
+
+# Logo
+tk.Label(master=header_frame, text = "Picture Generation",fg="white",bg="red", font='Large').grid(row=0,column=0, sticky="ew")
+logo_lab7 = ImageTk.PhotoImage(resize_longer_side(Image.open("assets/Lab7_BlancRouge.png"),256))
+logo=tk.Label(master=header_frame, image = logo_lab7)
+logo.configure(background='black')
+logo.grid(row=0,column=1, sticky="ew")
 
 # Standard Parameters
-tk.Label(standard_parameters_frame,text="Parameters for Standard FXs",font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Label(header_frame,text="Parameters for Standard FXs",font="Large").grid(row=1,column=0,sticky="nsew")
 preset_var = tk.StringVar()
 tk.Label(standard_parameters_frame, text="Preset Selection",font="Medium").grid(row=1,column=0,sticky="nsew")
 tk.Spinbox(standard_parameters_frame, from_=0, to=len(presets)-1, font="Medium", textvariable=preset_var, command=load_preset, state='readonly').grid(row=1,column=1,sticky="nsew")
@@ -1617,9 +1730,14 @@ tk.Label(standard_parameters_frame, text="Blending Value",font="Medium").grid(ro
 blend_var = tk.DoubleVar()
 blend_var.set(0.55)
 tk.Spinbox(standard_parameters_frame, textvariable=blend_var, from_=0.0, to=1.0, increment=0.05, wrap=True).grid(row=8,column=1,sticky="nsew")
+tk.Label(standard_parameters_frame, text="Model Selection",font="Medium").grid(row=9,column=0,sticky="nsew")
+model_name_var = tk.StringVar()
+model_name_var.set("stabilityai/sdxl-turbo")
+model_name_entry = tk.Entry(standard_parameters_frame,textvariable=model_name_var,font="Medium")
+model_name_entry.grid(row=9,column=1,sticky="nsew")
 
 # Adapter Parameters
-tk.Label(adapter_parameters_frame,text="Parameters for Adapter FXs",font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Label(header_frame,text="Parameters for Adapter FXs",font="Large").grid(row=1,column=1,sticky="nsew")
 adapter_image_var = tk.StringVar()
 tk.Button(adapter_filename_frame, text="Select Adapter Image", command=upload_adapter_image).grid(row=0,column=0,sticky="nsew")
 adapter_image_entry = tk.Entry(adapter_filename_frame, textvariable=adapter_image_var, font="Medium")
@@ -1635,6 +1753,14 @@ background_entry.grid(row=1,column=0,sticky="nsew")
 background_preview = tk.Label(adapter_parameters_frame,image=adapter_tk_image)
 background_preview.grid(row=2,column=1,sticky="nsew")
 
+# Perspective Parameters
+tk.Label(header_frame,text="Parameters for Perspective FXs",font="Large").grid(row=1,column=2,sticky="nsew")
+global color_code
+color_code=(1,1,1)
+tk.Button(perspective_frame, text="Choose Color", command=choose_color, font="Medium").grid(row=0,column=0,sticky="nsew")
+color_label = tk.Label(perspective_frame, text="Default Color White", font="Medium")
+color_label.grid(row=1,column=0,sticky="nsew")
+
 # Debug Mode
 debug_var = tk.BooleanVar()
 tk.Checkbutton(buttons_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=0,column=0,sticky="nsew")
@@ -1644,9 +1770,12 @@ tk.Button(buttons_frame, text="Adapter FXs",command=adapter_handler,font="Large"
 tk.Button(buttons_frame, text="Background FXs",command=background_handler,font="Large").grid(row=0,column=3,sticky="nsew")
 tk.Button(buttons_frame, text="Perspective FXs",command=perspective_handler,font="Large").grid(row=0,column=4,sticky="nsew")
 
-# Configure weights for responsive layout
-main_window.grid_rowconfigure([0,1,2], weight=1)
-main_window.grid_columnconfigure(0, weight=1)
+# Configure rows and columns for each frame
+for frame in [main_window, header_frame, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
+              adapter_filename_frame, background_frame, buttons_frame]:
+    col_number, row_number = frame.grid_size()
+    frame.grid_rowconfigure(list(range(col_number)), weight=1)  # This can be adjusted if you have more rows
+    frame.grid_columnconfigure(list(range(row_number)), weight=1)  # This can be adjusted if you have more columns
 
 main_window.mainloop()
 
