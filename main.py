@@ -1636,7 +1636,8 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Welcome to the Video Stream!"
+    return "Welcome to the Video Stream!
+    Connect using this url and /video_feed"
 @app.route('/video_feed')        
 def video_feed():
     return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')

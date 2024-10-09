@@ -98,3 +98,15 @@ Each of them requires different input fields. To explore each possibility, it is
 | **Adapter effect**     | ✓                | ✓                         | ✓                     |                       | ✓               |
 | **Background effect**  | ✓                | ✓                         | ✓                     | ✓                     | ✓               |
 | **Perspective effect** | ✓                | ✓                         | _(optional)_          |                       |                 |
+
+### Visualising the effects by WiFi (Flask server)
+
+You can use a Flask server to view your output in real time on any device by uncommenting this section, responsible of the server :
+
+<p align="center">
+    <img src="/assets/screen-flask.PNG" alt="Preview in debug mode" height="400"/>
+</p>
+
+You will then be able to connect to the server on the ip of the server, port `3142` and adding `/video_feed`
+(ex : `123.456.789.0:3142/video_feed`)
+Note : you will only be able to view the output, **not the output**.
