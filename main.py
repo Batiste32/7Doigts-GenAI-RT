@@ -1644,7 +1644,7 @@ def video_feed():
 
 # Thread to run the Flask app
 def run_flask():
-    app.run(host='0.0.0.0', port=3142)  # Run Flask on a different port
+    app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
     
 # Start Flask server in a separate thread
 flask_thread = threading.Thread(target=run_flask, daemon=True)

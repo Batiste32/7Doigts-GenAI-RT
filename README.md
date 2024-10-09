@@ -1,18 +1,18 @@
 ﻿# 7Doigts-GenAI-RT <img src="/assets/Lab7_BlancRouge.png" alt="Logo for the 7 Fingers" height="50" />
 
 
-## Introduction
+## I - Introduction
 
 This project is designed for the [7 Doigts](https://7doigts.com/) / [7 Fingers](https://7fingers.com/) company.
 It contains the code for generating live pictures using Stable Diffusion based on a camera input.
 
-## Installation
+## II - Installation
 
-### Download
+### 1. Download
 
 Clone this repository using `git clone https://github.com/Batiste32/7Doigts-GenAI-RT/`.
 
-### (Recommended) Creating a VENV
+### 2. (Recommended) Creating a VENV
 
 Creating a virtual environment (venv) is recommended in order to preserve your other installations.
 This will allow you to have a separate Python installation with the correct packages.
@@ -26,7 +26,7 @@ activate
 cd ../..
 ```
 
-### Installing the libraries
+### 3. Installing the libraries
 
 This project was built using **Python 3.11** and **CUDA 1.12**.
 
@@ -40,7 +40,7 @@ Then install the correct torch installation. If you use a different CUDA (check 
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-## Using the project
+## III - Using the project
 
 ### External setup
 
@@ -51,7 +51,7 @@ To make this project work, you will need a camera connected to your computer and
 python main.py
 ```
 
-An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file.
+An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file. To make sure it has taken effect, you should restart the program.
 
 ### Main Interface
 
@@ -80,7 +80,7 @@ If the debug mode is activated, the input will be shown with the output.
     <img src="/assets/screen-preview-debug.PNG" alt="Preview in debug mode" height="150"/>
 </p>
 
-Note : For this example, I use a kinect camera with a body tracking algorithm, which gives this black and white input, ideal for abstract transformation. If you use a standard webcam, it might be preferable to use more "realistic" prompts.
+Note : For this example, I use a Kinect camera with a body tracking algorithm, which gives this black and white input, ideal for abstract transformation. If you use a standard webcam, it might be preferable to use more "realistic" prompts.
 
 ### The different effects
 
