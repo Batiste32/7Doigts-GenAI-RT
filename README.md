@@ -16,7 +16,7 @@ Clone this repository using `git clone https://github.com/Batiste32/7Doigts-GenA
 
 Creating a virtual environment (venv) is recommended in order to preserve your other installations.
 This will allow you to have a separate Python installation with the correct packages.
-This project was built using **Python 3.11**.
+This project was built for **Python 3.11**.
 
 ```bash
 cd 7Doigts-GenAI-RT
@@ -28,7 +28,7 @@ cd ../..
 
 ### 3. Installing the libraries
 
-This project was built using **Python 3.11** and **CUDA 1.12**.
+This project was built for **Python 3.11** using **CUDA 1.12**.
 
 ```bash
 python -m pip install -r requirements.txt

@@ -2,15 +2,11 @@ import cv2
 from PIL import Image
 import numpy as np
 import keyboard
-from IPython.display import display, clear_output
-import ipywidgets
 from diffusers import AutoPipelineForImage2Image, EulerAncestralDiscreteScheduler, StableDiffusionXLControlNetPipeline, ControlNetModel
 from diffusers.utils import load_image
 import torch
 import os
-from optimum.onnxruntime import ORTStableDiffusionXLPipeline
 import threading
-from diffusers.models.attention_processor import AttnProcessor2_0
 from transformers import CLIPVisionModelWithProjection
 import subprocess
 
