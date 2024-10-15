@@ -21,6 +21,8 @@ import time
 from flask import Flask, Response
 import webbrowser
 import socket
+import signal
+import requests
 
 # For type hint
 from typing import Generator
@@ -37,7 +39,7 @@ print(model_path)
 
 os.environ['HF_HOME'] = model_path
 os.environ['TRANSFORMERS_CACHE'] = model_path    # path to downloaded models
-subprocess.run('setx HF_HOME '+model_path,shell=True)
+subprocess.run('setx HF_HOME '+model_path,shell=True,check=False)
 
 torch.backends.cuda.matmul.allow_tf32 = True       # use 32 precision floats
 
@@ -763,7 +765,7 @@ def fullsize_image(img_width: int, img_height: int) -> tuple[int, int]:
     
     return new_height, new_width
 
-def image_updater(output_image, full_width, full_height, input_slot, output_slot) -> None:
+def image_updater(full_width, full_height, input_slot, output_slot) -> None:
     """
     Update the input and output images in the GUI.
 
@@ -774,6 +776,7 @@ def image_updater(output_image, full_width, full_height, input_slot, output_slot
     global photo_input
     global input_image
     global photo_output
+    global output_image
     
     # Update GUI visuals
     if debug_var.get():  # Input only in debug mode
@@ -807,7 +810,7 @@ def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
@@ -907,7 +910,7 @@ def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
@@ -1019,12 +1022,12 @@ def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_windo
     
     # Blend frame with the input
     background_input = blend_images(blended_image, background_frame, 0.20)
-    
+
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=background_input)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
@@ -1114,7 +1117,7 @@ def background_handler(webcam : WebcamCapture) -> None:
     listener_thread.join()
     print("Exited loop and cleared thread")
 
-def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, center_x,center_y,box_width,box_height) -> None:
     """
     Continuously captures images from the webcam and processes them for perspective transformation.
 
@@ -1129,7 +1132,6 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     global input_image
     global output_image
     global looping
-    #global center_x, center_y, box_width, box_height
     
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
@@ -1144,7 +1146,7 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     
     # Load the control image in the pipeline
     pipeline.load_control_image(perspective)
-    
+
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get())
     
@@ -1154,11 +1156,11 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height))
     else:   
         process_window.destroy()
 
@@ -1188,8 +1190,7 @@ def perspective_handler(webcam : WebcamCapture) -> None:
     pipeline.accelerate_pipe()
     
     # Initialize box values
-    global center_x, center_y, box_width, box_height
-    center_x = int(image_size.get())/2
+    center_x = int(int(image_size.get())/2)
     center_y = center_x
     box_width = 1
     box_height = box_width
@@ -1233,7 +1234,7 @@ def perspective_handler(webcam : WebcamCapture) -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run perspective_loop frequently to update images
-    process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -1575,8 +1576,6 @@ def send_image_server() -> Generator[bytes, None, None]:
         bytes: The JPEG image data in a multipart response format.
     """
     global output_image
-    print("Executing send_image_server")
-    
     while True:
         if output_image is not None:
             numpy_image = np.array(output_image)  # Convert from RGB to BGR
@@ -1615,7 +1614,13 @@ if using_server=="Y" or using_server=="y":
     @app.route('/video_feed')        
     def video_feed():
         return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
+    @app.route('/shutdown', methods=['POST'])
+    def shutdown():
+        """Shutdown the Flask app programmatically"""
+        os.kill(os.getpid(), signal.SIGINT)  # Sends a SIGINT signal to the current process to shut down
+        return 'Shutting down...'
+    def shutdown_trigger():
+        requests.post('http://localhost:3142/shutdown')
     # Thread to run the Flask app
     def run_flask():
         app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
@@ -1741,11 +1746,13 @@ debug_var = tk.BooleanVar()
 tk.Checkbutton(global_settings_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=0,column=0,sticky="nsew")
 
 # Open Preview with URL
-url_button=tk.Button(global_settings_frame, text="Server unactive\nuncomment the section\nbefore running the code",font="Medium",command=open_web_feed)
+url_button=tk.Button(global_settings_frame, text="Server unactive",font="Medium",command=open_web_feed)
 url_button.config(state=tk.DISABLED)
 url_button.grid(row=1,column=0,sticky="nsew")
 if using_server :
     url_button.config(text="Hosting on URL :"+get_url(),state=tk.NORMAL)
+    kill_button=tk.Button(global_settings_frame, text="/!\ Shutdown Server and app",font="Large",command=shutdown_trigger,bg="red",fg="white")
+    kill_button.grid(row=2,column=0,sticky="nsew")
 
 # Start Buttons
 tk.Button(parameters_frame, text="Standard FXs",command=lambda : classic_handler(webcam),font="Large").grid(row=10,column=0,sticky="nsew")
@@ -1780,6 +1787,11 @@ except:
 try :
     client_socket.close()
     server_socket.close()
+except :
+    pass
+
+try :
+    shutdown_trigger()
 except :
     pass
 
