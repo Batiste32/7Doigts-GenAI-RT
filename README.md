@@ -1,5 +1,21 @@
 ﻿# 7Doigts-GenAI-RT <img src="/assets/Lab7_BlancRouge.png" alt="Logo for the 7 Fingers" height="50" />
 
+## Table of Contents
+- [7Doigts-GenAI-RT ](#7doigts-genai-rt-)
+  - [Table of Contents](#table-of-contents)
+  - [I - Introduction](#i---introduction)
+  - [II - Installation](#ii---installation)
+    - [1. Download](#1-download)
+    - [2. (Recommended) Creating a VENV](#2-recommended-creating-a-venv)
+    - [3. Installing the libraries](#3-installing-the-libraries)
+  - [III - Using the project](#iii---using-the-project)
+    - [External setup](#external-setup)
+    - [Main Interface](#main-interface)
+    - [Generation Interface](#generation-interface)
+    - [The different effects](#the-different-effects)
+    - [Visualising the effects by WiFi (Flask server)](#visualising-the-effects-by-wifi-flask-server)
+    - [Using a video as an input](#using-a-video-as-an-input)
+
 
 ## I - Introduction
 
@@ -126,3 +142,21 @@ In the interface, 2 buttons will appear, related to the server :
 The first one will indicate the URL to enter to access the broadcast, clicking it will directly open the page in your browser.
 The second one will kill the application and close the server correctly.
 **This is the best way to close the app, otherwise you will have to kill the terminal / kernel.**
+
+### Using a video as an input
+
+To input a video instead of a webcam, launch the video script instead of the main one :
+```bash
+python video.py
+```
+
+It will generate a similar interface with more options on the left, that will define the video properties :
+
+<p align="center">
+    <img src="/assets/screen-video.PNG" alt="Picture of the video parameters" height="150"/>
+</p>
+
+To upload the video, click on the large button at the top. The correct file path should appear below.
+Selecting an effect like before should work, using the video instead.
+You can adjust the video sampling to match the real speed.
+(if the video appear too slow, increase the sampling rate).

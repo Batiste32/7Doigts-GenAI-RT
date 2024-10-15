@@ -21,6 +21,8 @@ import time
 from flask import Flask, Response
 import webbrowser
 import socket
+import signal
+import requests
 
 # For type hint
 from typing import Generator
@@ -28,8 +30,8 @@ from typing import Generator
 open_file = open("config.txt", "r")
 model_path = open_file.readline()
 open_file.close()
-if model_path == "" : # Check if path defined, if not, ask the user
-    model_path = input("Write path to where models should be downloaded")
+if model_path == "" or model_path == "\n" : # Check if path defined, if not, ask the user
+    model_path = input("Write path to where models should be downloaded : ")
     open_file = open("config.txt", "w")
     open_file.writelines(model_path)
     open_file.close()
@@ -37,7 +39,7 @@ print(model_path)
 
 os.environ['HF_HOME'] = model_path
 os.environ['TRANSFORMERS_CACHE'] = model_path    # path to downloaded models
-subprocess.run('setx HF_HOME '+model_path,shell=True)
+subprocess.run('setx HF_HOME '+model_path,shell=True,check=False)
 
 torch.backends.cuda.matmul.allow_tf32 = True       # use 32 precision floats
 
@@ -97,6 +99,101 @@ class WebcamCapture:
         # Release the webcam when done
         self.cap.release()
 
+class VideoPlayer:
+    """A class to manipulate a video file."""
+    
+    def __init__(self):
+
+        self.video_filename=None
+        self.video=None
+
+    def _store_frames(self):
+        """Extracts all frames from the video and stores them as PIL Images."""
+        pil_images = []
+        frame_number = 0
+        
+        while True:
+            ret, curr_frame = self.video.read()
+            if not ret:
+                break  # End of video
+
+            frame_number += 1
+
+            # Convert frame (OpenCV format) to PIL Image
+            frame_rgb = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)  # Convert to RGB
+            pil_image = Image.fromarray(frame_rgb)  # Convert to PIL Image
+            pil_images.append(pil_image)
+        
+        return pil_images, frame_number
+
+    def next_frame(self, sampling : int = 1):
+        """Returns the next frame in the video loop."""
+        if self.index < self.frame_number:
+            target_frame = self.frame_array[self.index]
+            self.index += sampling
+        else:
+            self.index = 0  # Reset to the first frame after the last
+            target_frame = self.frame_array[self.index]
+
+        return target_frame
+    
+    def load_new_video(self, video_path: str = None):
+        """Loads a new video and resets the frame data."""
+        # Release the current video capture object if one exists
+        if self.video :
+            self.release_video()
+
+        if video_path is None or video_path == "":
+            video_path = askopenfilename()  # Prompt for file selection if not provided
+
+        self.video_filename = video_path
+        self.video = cv2.VideoCapture(video_path)
+
+        # Check if video was successfully opened
+        if not self.video.isOpened():
+            raise ValueError("Error: Could not open the new video file.")
+        
+        # Reload frames and reset the index
+        self.frame_array, self.frame_number = self._store_frames()
+        self.index = 0
+        print(f"New video loaded: {video_path}")
+
+    def resize_video(self, width: int, height: int):
+        """Crops every frame to a square ratio (centered), then resizes to the specified width and height."""
+        def crop_to_square(image: Image.Image) -> Image.Image:
+            """Crops the image to a square ratio, centered."""
+            img_width, img_height = image.size
+            if img_width == img_height:
+                return image  # Already square
+
+            # Determine the size of the square (smallest dimension)
+            square_size = min(img_width, img_height)
+
+            # Calculate cropping coordinates to center the crop
+            left = (img_width - square_size) // 2
+            top = (img_height - square_size) // 2
+            right = left + square_size
+            bottom = top + square_size
+
+            return image.crop((left, top, right, bottom))
+
+        # First crop each frame to a centered square, then resize to (width, height)
+        self.frame_array = [crop_to_square(frame).resize((width, height), Image.Resampling.LANCZOS) for frame in self.frame_array]
+
+        # Resize the video capture itself for each frame read (new dimensions applied to frames)
+        self.video.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        
+        print(f"Video resized to {width}x{height} after cropping to a square ratio.")
+
+    def release_video(self):
+        """Releases the video capture object."""
+        self.video.release()
+
+def load_video(player):
+    player.load_new_video()
+    video_var.set(player.video_filename)
+
 class SDPipeline:
     """
     A class to handle image transformation using the Stable Diffusion pipeline.
@@ -143,7 +240,7 @@ class SDPipeline:
         # Set scheduler
         self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
             self.pipe.scheduler.config, 
-            use_safetensors=True
+            use_safetensors=True, timestep_spacing='trailing'
         )
         # Initialize generator
         self.seed = seed
@@ -286,7 +383,7 @@ class CNPipeline:
         # Initialize the SDXLPipe
         self.pipe = StableDiffusionXLControlNetPipeline.from_pretrained(self.model_name, controlnet=self.controlnet, torch_dtype=torch.float16, use_safetensors=True)
         # Set scheduler
-        self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config)
+        self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config,timestep_spacing='trailing')
         # Initialize generator
         self.seed = seed
         self.generator = torch.Generator(device="cuda").manual_seed(seed)
@@ -763,7 +860,7 @@ def fullsize_image(img_width: int, img_height: int) -> tuple[int, int]:
     
     return new_height, new_width
 
-def image_updater() -> None:
+def image_updater(full_width, full_height, input_slot, output_slot) -> None:
     """
     Update the input and output images in the GUI.
 
@@ -771,10 +868,8 @@ def image_updater() -> None:
     The input image is only updated in debug mode, while the output image is resized and updated
     in all cases.
     """
-    global input_slot
     global photo_input
     global input_image
-    global output_slot
     global photo_output
     global output_image
     
@@ -788,7 +883,7 @@ def image_updater() -> None:
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
     
-def classic_loop() -> None:
+def classic_loop(video : VideoPlayer, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
     """
     Capture and process images in a continuous loop.
 
@@ -796,15 +891,12 @@ def classic_loop() -> None:
     and transforms the blended image using a defined pipeline. The function updates the images
     displayed in the GUI and continues to loop until the global `looping` variable is set to False.
     """
-    global webcam
     global input_image
     global output_image
-    global pipeline
     global looping
-    global process_window
     
     # Capture and process the input image
-    input_image = invert_image(webcam.capture_image())
+    input_image = invert_image(video.next_frame(int(video_sampling_var.get())))
     
     # Blend last output with new input
     blended_image = blend_images(input_image, output_image.resize((image_size.get(), image_size.get())), float(blend_var.get()))
@@ -813,15 +905,15 @@ def classic_loop() -> None:
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
     
     # Update the GUI
-    image_updater()
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, classic_loop)
+        process_window.after(1, lambda: classic_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     else:   
         process_window.destroy()
 
-def classic_handler() -> None:
+def classic_handler(video : VideoPlayer) -> None:
     """
     Initialize and start the classic image processing loop.
 
@@ -831,7 +923,7 @@ def classic_handler() -> None:
     The GUI is displayed in a separate window, and image updates are handled by
     `classic_loop`.
     """
-    global full_width, full_height
+    video.resize_video(image_size.get(), image_size.get())
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -843,16 +935,14 @@ def classic_handler() -> None:
     looping = True
 
     # Create Pipeline
-    global pipeline
     pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
 
     # Start the keyboard listener in a separate thread
-    #listener_thread = threading.Thread(target=keyboard_listener)
-    #listener_thread.start()
+    listener_thread = threading.Thread(target=keyboard_listener)
+    listener_thread.start()
 
     # Generate the interface first
-    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -868,8 +958,6 @@ def classic_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
-    global input_slot
-    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -877,6 +965,7 @@ def classic_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
+        input_slot = None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -884,7 +973,7 @@ def classic_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run classic_loop frequently to update images
-    process_window.after(1, classic_loop)
+    process_window.after(1, lambda: classic_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -894,7 +983,7 @@ def classic_handler() -> None:
     except :
         pass
     
-def adapter_loop() -> None:
+def adapter_loop(video : VideoPlayer, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
     """
     Capture and process images in a continuous loop for the adapter mode.
 
@@ -903,15 +992,12 @@ def adapter_loop() -> None:
     The function updates the images displayed in the GUI and continues to loop until the
     global `looping` variable is set to False.
     """
-    global webcam
     global input_image
     global output_image
-    global pipeline
     global looping
-    global process_window
     
     # Capture and process the input image
-    input_image = invert_image(webcam.capture_image())
+    input_image = invert_image(video.next_frame(int(video_sampling_var.get())))
     
     # Blend last output with new input
     blended_image = blend_images(input_image, output_image.resize((image_size.get(), image_size.get())), float(blend_var.get()))
@@ -920,15 +1006,15 @@ def adapter_loop() -> None:
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
     
     # Update the GUI
-    image_updater()
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, adapter_loop)
+        process_window.after(1, lambda: adapter_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     else:   
         process_window.destroy()
 
-def adapter_handler() -> None:
+def adapter_handler(video : VideoPlayer) -> None:
     """
     Initialize and start the adapter image processing loop.
 
@@ -938,7 +1024,6 @@ def adapter_handler() -> None:
     The GUI is displayed in a separate window, and image updates are handled by
     `adapter_loop`.
     """
-    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -956,7 +1041,6 @@ def adapter_handler() -> None:
     looping = True
 
     # Create Pipeline
-    global pipeline
     pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
@@ -968,7 +1052,6 @@ def adapter_handler() -> None:
     listener_thread.start()
 
     # Generate the interface first
-    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -984,8 +1067,6 @@ def adapter_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
-    global input_slot
-    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -993,6 +1074,7 @@ def adapter_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
+        input_slot = None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -1000,14 +1082,14 @@ def adapter_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run adapter_loop frequently to update images
-    process_window.after(1, adapter_loop)
+    process_window.after(1, lambda: adapter_loop(video,pipeline,process_window, full_width, full_height, input_slot, output_slot))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
     
-def background_loop() -> None:
+def background_loop(video : VideoPlayer, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher) -> None:
     """
     Capture and process images in a continuous loop for background image processing.
 
@@ -1018,18 +1100,12 @@ def background_loop() -> None:
 
     The blending of images and frames allows for dynamic background integration in the output image.
     """
-    global webcam
     global input_image
     global output_image
-    global pipeline
     global looping
-    global process_window
-    global gif_cacher
-    global index
-    global max_index
     
     # Capture and process the input image
-    input_image = invert_image(webcam.capture_image())
+    input_image = invert_image(video.next_frame(int(video_sampling_var.get())))
     
     # Blend last output with new input
     blended_image = blend_images(input_image, output_image.resize((image_size.get(), image_size.get())), float(blend_var.get()))
@@ -1042,20 +1118,20 @@ def background_loop() -> None:
     
     # Blend frame with the input
     background_input = blend_images(blended_image, background_frame, 0.20)
-    
+
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=background_input)
     
     # Update the GUI
-    image_updater()
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, background_loop)
+        process_window.after(1, lambda : background_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
     else:   
         process_window.destroy()
 
-def background_handler() -> None:
+def background_handler(video : VideoPlayer) -> None:
     """
     Initialize and start the background image processing loop.
 
@@ -1068,7 +1144,6 @@ def background_handler() -> None:
     Returns:
         None
     """
-    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -1084,7 +1159,6 @@ def background_handler() -> None:
     looping = True
 
     # Create Pipeline
-    global pipeline
     pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
@@ -1095,16 +1169,13 @@ def background_handler() -> None:
     listener_thread = threading.Thread(target=keyboard_listener)
     listener_thread.start()
 
-    global gif_cacher
-    global max_index
-    global index
+    # Create Gif Cacher and initialize triangular selection
     gif_cacher = GifFrameCacher(background_gif_var.get())  # Cache every frame of the gif for easier access later on
     gif_cacher.resize_frames(image_size.get(), image_size.get())  # Resize every frame to the correct size
     max_index = gif_cacher.get_total_frames() - 1
     index = 0
 
     # Generate the interface first
-    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -1120,8 +1191,6 @@ def background_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
-    global input_slot
-    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -1129,6 +1198,7 @@ def background_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
+        input_slot= None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -1136,14 +1206,14 @@ def background_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
 
     # Run background_loop frequently to update images
-    process_window.after(1, background_loop)
+    process_window.after(1, lambda : background_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
 
-def perspective_loop() -> None:
+def perspective_loop(video : VideoPlayer, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, center_x,center_y,box_width,box_height) -> None:
     """
     Continuously captures images from the webcam and processes them for perspective transformation.
 
@@ -1155,16 +1225,12 @@ def perspective_loop() -> None:
     Returns:
         None
     """
-    global webcam
     global input_image
     global output_image
-    global pipeline
     global looping
-    global process_window
-    global center_x, center_y, box_width, box_height
     
     # Capture and process the input image
-    input_image = invert_image(webcam.capture_image())
+    input_image = invert_image(video.next_frame(int(video_sampling_var.get())))
     
     # Compute bounding box
     bbox_center_and_size = compute_bounding_box_center_and_size(input_image)
@@ -1176,7 +1242,7 @@ def perspective_loop() -> None:
     
     # Load the control image in the pipeline
     pipeline.load_control_image(perspective)
-    
+
     # Transform the image with the pipeline
     output_image = pipeline.transform_image(positive_prompt_var.get())
     
@@ -1186,15 +1252,15 @@ def perspective_loop() -> None:
     output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater()
+    image_updater(full_width, full_height, input_slot, output_slot)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, perspective_loop)
+        process_window.after(1, lambda : perspective_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height))
     else:   
         process_window.destroy()
 
-def perspective_handler() -> None:
+def perspective_handler(video : VideoPlayer) -> None:
     """
     Initializes and starts the perspective transformation image processing loop.
 
@@ -1205,7 +1271,6 @@ def perspective_handler() -> None:
     Returns:
         None
     """
-    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -1217,14 +1282,11 @@ def perspective_handler() -> None:
     looping = True
 
     # Create Pipeline
-    global pipeline
-    global adapter_image
     pipeline = CNPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
     # Initialize box values
-    global center_x, center_y, box_width, box_height
-    center_x = int(image_size.get())/2
+    center_x = int(int(image_size.get())/2)
     center_y = center_x
     box_width = 1
     box_height = box_width
@@ -1238,7 +1300,6 @@ def perspective_handler() -> None:
     listener_thread.start()
 
     # Generate the interface first
-    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -1254,8 +1315,6 @@ def perspective_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
-    global input_slot
-    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -1263,6 +1322,7 @@ def perspective_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
+        input_slot = None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -1270,7 +1330,7 @@ def perspective_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run perspective_loop frequently to update images
-    process_window.after(1, perspective_loop)
+    process_window.after(1, lambda : perspective_loop(video, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -1612,8 +1672,6 @@ def send_image_server() -> Generator[bytes, None, None]:
         bytes: The JPEG image data in a multipart response format.
     """
     global output_image
-    print("Executing send_image_server")
-    
     while True:
         if output_image is not None:
             numpy_image = np.array(output_image)  # Convert from RGB to BGR
@@ -1638,33 +1696,34 @@ def get_url():
 def open_web_feed():
     webbrowser.open("http://"+get_url())
 
-# Open Webcam
-global webcam
-webcam = WebcamCapture(cam_index=0)
+using_server=input("Should the output be broadcast to the server ? Y/N   -> ")
+if using_server=="Y" or using_server=="y":
+    # Create server
+    app = Flask(__name__)
 
-using_server=False
-
-# This part creates a Server to view the output using ip/video_feed
-"""
-# Create server
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Welcome to the Video Stream! Connect using this url and /video_feed"
-@app.route('/video_feed')        
-def video_feed():
-    return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-# Thread to run the Flask app
-def run_flask():
-    app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
-    
-# Start Flask server in a separate thread
-flask_thread = threading.Thread(target=run_flask, daemon=True)
-flask_thread.start()
-using_server=True
-"""
+    @app.route('/')
+    def home():
+        return "Welcome to the Video Stream! Connect using this url and /video_feed"
+    @app.route('/video_feed')        
+    def video_feed():
+        return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    @app.route('/shutdown', methods=['POST'])
+    def shutdown():
+        """Shutdown the Flask app programmatically"""
+        os.kill(os.getpid(), signal.SIGINT)  # Sends a SIGINT signal to the current process to shut down
+        return 'Shutting down...'
+    def shutdown_trigger():
+        requests.post('http://localhost:3142/shutdown')
+    # Thread to run the Flask app
+    def run_flask():
+        app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
+        
+    # Start Flask server in a separate thread
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    using_server=True
+else :
+    using_server=False
 
 # Initialize images once before the loop
 global input_image
@@ -1775,22 +1834,35 @@ tk.Button(perspective_frame, text="Choose Color", command=choose_color, font="Me
 color_label = tk.Label(perspective_frame, text="Default Color White", font="Medium")
 color_label.grid(row=2,column=0,sticky="nsew")
 
-# Debug Mode
-debug_var = tk.BooleanVar()
-tk.Checkbutton(global_settings_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=0,column=0,sticky="nsew")
+# Video Selection
+video_player=VideoPlayer()
+video_var=tk.StringVar()
+tk.Button(global_settings_frame, text="Load video",font="Medium",command=lambda : load_video(video_player)).grid(row=0,column=0,sticky="nsew")
+tk.Label(global_settings_frame,font="Medium",text="Video path : ").grid(row=1,column=0,sticky="nsew")
+tk.Label(global_settings_frame,font="Medium",text="",textvariable=video_var).grid(row=2,column=0,sticky="nsew")
+tk.Label(global_settings_frame,font="Medium",text="Video Sampling (Speed) :").grid(row=3,column=0,sticky="nsew")
+video_sampling_var=tk.IntVar()
+sampling_spinbox=tk.Spinbox(global_settings_frame,from_=1,to=20,textvariable=video_sampling_var)
+sampling_spinbox.grid(row=4,column=0,sticky="nsew")
 
 # Open Preview with URL
-url_button=tk.Button(global_settings_frame, text="Server unactive\nuncomment the section\nbefore running the code",font="Medium",command=open_web_feed)
+url_button=tk.Button(global_settings_frame, text="Server unactive",font="Medium",command=open_web_feed)
 url_button.config(state=tk.DISABLED)
-url_button.grid(row=1,column=0,sticky="nsew")
+url_button.grid(row=5,column=0,sticky="nsew")
 if using_server :
-    url_button.config(text="Hosting on URL :"+get_url(),state=tk.NORMAL)
+    url_button.config(text="Hosting on URL : "+get_url(),state=tk.NORMAL)
+    kill_button=tk.Button(global_settings_frame, text="/!\ Shutdown Server and App",font="Large",command=shutdown_trigger,bg="red",fg="white")
+    kill_button.grid(row=6,column=0,sticky="nsew")
+
+# Debug Mode
+debug_var = tk.BooleanVar()
+tk.Checkbutton(global_settings_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=7,column=0,sticky="nsew")
 
 # Start Buttons
-tk.Button(parameters_frame, text="Standard FXs",command=classic_handler,font="Large").grid(row=10,column=0,sticky="nsew")
-tk.Button(adapter_buttons_frame, text="Adapter FXs",command=adapter_handler,font="Large").grid(row=0,column=0,sticky="nsew")
-tk.Button(adapter_buttons_frame, text="Background FXs",command=background_handler,font="Large").grid(row=0,column=1,sticky="nsew")
-tk.Button(parameters_frame, text="Perspective FXs",command=perspective_handler,font="Large").grid(row=10,column=2,sticky="nsew")
+tk.Button(parameters_frame, text="Standard FXs",command=lambda : classic_handler(video_player),font="Large").grid(row=10,column=0,sticky="nsew")
+tk.Button(adapter_buttons_frame, text="Adapter FXs",command=lambda : adapter_handler(video_player),font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Button(adapter_buttons_frame, text="Background FXs",command=lambda : background_handler(video_player),font="Large").grid(row=0,column=1,sticky="nsew")
+tk.Button(parameters_frame, text="Perspective FXs",command=lambda : perspective_handler(video_player),font="Large").grid(row=10,column=2,sticky="nsew")
 
 # Configure rows and columns for each frame
 for frame in [main_window, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
@@ -1810,15 +1882,16 @@ try :
     flask_thread.join()
 except :
     pass
-try :
-    webcam.release()
-except:
-    pass
 
 # Clean up
 try :
     client_socket.close()
     server_socket.close()
+except :
+    pass
+
+try :
+    shutdown_trigger()
 except :
     pass
 
