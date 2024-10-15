@@ -53,6 +53,14 @@ python main.py
 
 An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file. To make sure it has taken effect, you should restart the program.
 
+Afterward, a message will be displayed in the terminal asking wehter or not the output should be broadcast to a server : 
+
+```
+Should the output be broadcast to the server ? Y/N   ->
+```
+
+**Warning :** Using the server might degrade performances or slow the program down.
+
 ### Main Interface
 
 A first Tkinter interface should open up with a selection of parameters.
@@ -103,12 +111,18 @@ Each of them requires different input fields. To explore each possibility, it is
 
 ### Visualising the effects by WiFi (Flask server)
 
-You can use a Flask server to view your output in real time on any device by uncommenting this section, responsible of the server :
-
-<p align="center">
-    <img src="/assets/screen-flask.PNG" alt="Preview in debug mode" height="400"/>
-</p>
+You can use a Flask server to view your output in real time on any device by answering `Y` when booting the program.
 
 You will then be able to connect to the server on the ip of the server, port `3142` and adding `/video_feed`
 (ex : `123.456.789.0:3142/video_feed`)
-Note : you will only be able to view the output, **not the input**.
+Note : you will only be able to view the output, **not the input** enven in debug mode.
+
+In the interface, 2 buttons will appear, related to the server :
+
+<p align="center">
+    <img src="/assets/screen-server.PNG" alt="Picture of the server buttons" height="150"/>
+</p>
+
+The first one will indicate the URL to enter to access the broadcast, clicking it will directly open the page in your browser.
+The second one will kill the application and close the server correctly.
+**This is the best way to close the app, otherwise you will have to kill the terminal / kernel.**

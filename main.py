@@ -30,8 +30,8 @@ from typing import Generator
 open_file = open("config.txt", "r")
 model_path = open_file.readline()
 open_file.close()
-if model_path == "" : # Check if path defined, if not, ask the user
-    model_path = input("Write path to where models should be downloaded")
+if model_path == "" or model_path == "\n" : # Check if path defined, if not, ask the user
+    model_path = input("Write path to where models should be downloaded : ")
     open_file = open("config.txt", "w")
     open_file.writelines(model_path)
     open_file.close()
@@ -1750,8 +1750,8 @@ url_button=tk.Button(global_settings_frame, text="Server unactive",font="Medium"
 url_button.config(state=tk.DISABLED)
 url_button.grid(row=1,column=0,sticky="nsew")
 if using_server :
-    url_button.config(text="Hosting on URL :"+get_url(),state=tk.NORMAL)
-    kill_button=tk.Button(global_settings_frame, text="/!\ Shutdown Server and app",font="Large",command=shutdown_trigger,bg="red",fg="white")
+    url_button.config(text="Hosting on URL : "+get_url(),state=tk.NORMAL)
+    kill_button=tk.Button(global_settings_frame, text="/!\ Shutdown Server and App",font="Large",command=shutdown_trigger,bg="red",fg="white")
     kill_button.grid(row=2,column=0,sticky="nsew")
 
 # Start Buttons
