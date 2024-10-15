@@ -19,6 +19,8 @@ import time
 
 # To send the frames as a stream
 from flask import Flask, Response
+import webbrowser
+import socket
 
 # For type hint
 from typing import Generator
@@ -1621,9 +1623,26 @@ def send_image_server() -> Generator[bytes, None, None]:
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+def get_url():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # Try to connect to a public IP (does not actually send data)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "Unable to retrieve IP"
+    finally:
+        s.close()
+    return ip+":3142/video_feed"
+
+def open_web_feed():
+    webbrowser.open("http://"+get_url())
+
 # Open Webcam
 global webcam
 webcam = WebcamCapture(cam_index=0)
+
+using_server=False
 
 # This part creates a Server to view the output using ip/video_feed
 """
@@ -1632,8 +1651,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Welcome to the Video Stream!
-    Connect using this url and /video_feed"
+    return "Welcome to the Video Stream! Connect using this url and /video_feed"
 @app.route('/video_feed')        
 def video_feed():
     return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -1645,6 +1663,7 @@ def run_flask():
 # Start Flask server in a separate thread
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
+using_server=True
 """
 
 # Initialize images once before the loop
@@ -1669,40 +1688,38 @@ large_font=font.Font(name="Large", family = "Helvetica", size=font_size*5)
 medium_font=font.Font(name="Medium", family = "Helvetica", size=font_size*3)
 
 # Frames creation
-header_frame = tk.Frame(main_window)
-header_frame.grid(row=0, column=0, sticky="nsew")
+global_settings_frame = tk.Frame(main_window)
+global_settings_frame.grid(row=1,column=0,sticky="nsew")
 parameters_frame = tk.Frame(main_window)
-parameters_frame.grid(row=1, column=0, sticky="nsew")
+parameters_frame.grid(row=1, column=1, sticky="nsew")
 standard_parameters_frame = tk.Frame(parameters_frame)
 standard_parameters_frame.grid(row=0, column=0, sticky="nsew")
 adapter_parameters_frame = tk.Frame(parameters_frame)
 adapter_parameters_frame.grid(row=0, column=1, sticky="nsew")
-adapter_filename_frame = tk.Frame(adapter_parameters_frame)
-adapter_filename_frame.grid(row=1, column=0, sticky="nsew")
-background_frame = tk.Frame(adapter_parameters_frame)
-background_frame.grid(row=2, column=0, sticky="nsew")
+adapter_row_frame = tk.Frame(adapter_parameters_frame)
+adapter_row_frame.grid(row=1,column=0,sticky="nsew")
+background_row_frame = tk.Frame(adapter_parameters_frame)
+background_row_frame.grid(row=2,column=0,sticky="nsew")
 perspective_frame = tk.Frame(parameters_frame)
 perspective_frame.grid(row=0, column=2, sticky="nsew")
-buttons_frame = tk.Frame(main_window)
-buttons_frame.grid(row=2, column=0, sticky="nsew")
+adapter_buttons_frame = tk.Frame(parameters_frame)
+adapter_buttons_frame.grid(row=10,column=1,sticky="nsew")
 
-header_frame.lift()
+global_settings_frame.lift()
 parameters_frame.lift()
 standard_parameters_frame.lift()
 adapter_parameters_frame.lift()
-adapter_filename_frame.lift()
-background_frame.lift()
-buttons_frame.lift()
+perspective_frame.lift()
 
 # Logo
-tk.Label(master=header_frame, text = "Picture Generation",fg="white",bg="red", font='Large').grid(row=0,column=0, sticky="ew")
+tk.Label(master=main_window, text = "Picture Generation",fg="white",bg="red", font='Large').grid(row=0,column=0, sticky="ew")
 logo_lab7 = ImageTk.PhotoImage(resize_longer_side(Image.open("assets/Lab7_BlancRouge.png"),256))
-logo=tk.Label(master=header_frame, image = logo_lab7)
+logo=tk.Label(master=main_window, image = logo_lab7)
 logo.configure(background='black')
 logo.grid(row=0,column=1, sticky="ew")
 
 # Standard Parameters
-tk.Label(header_frame,text="Parameters for Standard FXs",font="Large").grid(row=1,column=0,sticky="nsew")
+tk.Label(standard_parameters_frame,text="Parameters for Standard FXs",font="Large").grid(row=0,column=0,sticky="nsew")
 preset_var = tk.StringVar()
 tk.Label(standard_parameters_frame, text="Preset Selection",font="Medium").grid(row=1,column=0,sticky="nsew")
 tk.Spinbox(standard_parameters_frame, from_=0, to=len(presets)-1, font="Medium", textvariable=preset_var, command=load_preset, state='readonly').grid(row=1,column=1,sticky="nsew")
@@ -1734,42 +1751,50 @@ model_name_entry = tk.Entry(standard_parameters_frame,textvariable=model_name_va
 model_name_entry.grid(row=9,column=1,sticky="nsew")
 
 # Adapter Parameters
-tk.Label(header_frame,text="Parameters for Adapter FXs",font="Large").grid(row=1,column=1,sticky="nsew")
+tk.Label(adapter_parameters_frame,text="Parameters for Adapter FXs",font="Large").grid(row=0,column=0,sticky="nsew")
 adapter_image_var = tk.StringVar()
-tk.Button(adapter_filename_frame, text="Select Adapter Image", command=upload_adapter_image).grid(row=0,column=0,sticky="nsew")
-adapter_image_entry = tk.Entry(adapter_filename_frame, textvariable=adapter_image_var, font="Medium")
+tk.Button(adapter_row_frame, text="Select Adapter Image", command=upload_adapter_image).grid(row=0,column=0,sticky="nsew")
+adapter_image_entry = tk.Entry(adapter_row_frame, textvariable=adapter_image_var, font="Medium")
 adapter_image_entry.grid(row=1,column=0,sticky="nsew")
 adapter_image = Image.new("RGB",(128,128))
 adapter_tk_image = ImageTk.PhotoImage(adapter_image)
 adapter_preview = tk.Label(adapter_parameters_frame,image=adapter_tk_image)
 adapter_preview.grid(row=1,column=1,sticky="nsew")
 background_gif_var = tk.StringVar()
-tk.Button(background_frame, text="Select Background GIF", command=upload_gif).grid(row=0,column=0,sticky="nsew")
-background_entry = tk.Entry(background_frame, textvariable=background_gif_var, font="Medium")
+tk.Button(background_row_frame, text="Select Background GIF", command=upload_gif).grid(row=0,column=0,sticky="nsew")
+background_entry = tk.Entry(background_row_frame, textvariable=background_gif_var, font="Medium")
 background_entry.grid(row=1,column=0,sticky="nsew")
 background_preview = tk.Label(adapter_parameters_frame,image=adapter_tk_image)
 background_preview.grid(row=2,column=1,sticky="nsew")
 
 # Perspective Parameters
-tk.Label(header_frame,text="Parameters for Perspective FXs",font="Large").grid(row=1,column=2,sticky="nsew")
+tk.Label(perspective_frame,text="Parameters for Perspective FXs",font="Large").grid(row=0,column=0,sticky="nsew")
 global color_code
 color_code=(1,1,1)
-tk.Button(perspective_frame, text="Choose Color", command=choose_color, font="Medium").grid(row=0,column=0,sticky="nsew")
+tk.Button(perspective_frame, text="Choose Color", command=choose_color, font="Medium").grid(row=1,column=0,sticky="nsew")
 color_label = tk.Label(perspective_frame, text="Default Color White", font="Medium")
-color_label.grid(row=1,column=0,sticky="nsew")
+color_label.grid(row=2,column=0,sticky="nsew")
 
 # Debug Mode
 debug_var = tk.BooleanVar()
-tk.Checkbutton(buttons_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=0,column=0,sticky="nsew")
+tk.Checkbutton(global_settings_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=0,column=0,sticky="nsew")
+
+# Open Preview with URL
+url_button=tk.Button(global_settings_frame, text="Server unactive\nuncomment the section\nbefore running the code",font="Medium",command=open_web_feed)
+url_button.config(state=tk.DISABLED)
+url_button.grid(row=1,column=0,sticky="nsew")
+if using_server :
+    url_button.config(text="Hosting on URL :"+get_url(),state=tk.NORMAL)
+
 # Start Buttons
-tk.Button(buttons_frame, text="Standard FXs",command=classic_handler,font="Large").grid(row=0,column=1,sticky="nsew")
-tk.Button(buttons_frame, text="Adapter FXs",command=adapter_handler,font="Large").grid(row=0,column=2,sticky="nsew")
-tk.Button(buttons_frame, text="Background FXs",command=background_handler,font="Large").grid(row=0,column=3,sticky="nsew")
-tk.Button(buttons_frame, text="Perspective FXs",command=perspective_handler,font="Large").grid(row=0,column=4,sticky="nsew")
+tk.Button(parameters_frame, text="Standard FXs",command=classic_handler,font="Large").grid(row=10,column=0,sticky="nsew")
+tk.Button(adapter_buttons_frame, text="Adapter FXs",command=adapter_handler,font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Button(adapter_buttons_frame, text="Background FXs",command=background_handler,font="Large").grid(row=0,column=1,sticky="nsew")
+tk.Button(parameters_frame, text="Perspective FXs",command=perspective_handler,font="Large").grid(row=10,column=2,sticky="nsew")
 
 # Configure rows and columns for each frame
-for frame in [main_window, header_frame, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
-              adapter_filename_frame, background_frame, buttons_frame]:
+for frame in [main_window, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
+              adapter_row_frame, background_row_frame, adapter_buttons_frame, global_settings_frame]:
     col_number, row_number = frame.grid_size()
     frame.grid_rowconfigure(list(range(col_number)), weight=1)  # This can be adjusted if you have more rows
     frame.grid_columnconfigure(list(range(row_number)), weight=1)  # This can be adjusted if you have more columns
