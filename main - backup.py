@@ -763,7 +763,7 @@ def fullsize_image(img_width: int, img_height: int) -> tuple[int, int]:
     
     return new_height, new_width
 
-def image_updater(output_image, full_width, full_height, input_slot, output_slot) -> None:
+def image_updater() -> None:
     """
     Update the input and output images in the GUI.
 
@@ -771,9 +771,12 @@ def image_updater(output_image, full_width, full_height, input_slot, output_slot
     The input image is only updated in debug mode, while the output image is resized and updated
     in all cases.
     """
+    global input_slot
     global photo_input
     global input_image
+    global output_slot
     global photo_output
+    global output_image
     
     # Update GUI visuals
     if debug_var.get():  # Input only in debug mode
@@ -785,7 +788,7 @@ def image_updater(output_image, full_width, full_height, input_slot, output_slot
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
     
-def classic_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def classic_loop() -> None:
     """
     Capture and process images in a continuous loop.
 
@@ -796,7 +799,9 @@ def classic_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     global webcam
     global input_image
     global output_image
+    global pipeline
     global looping
+    global process_window
     
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
@@ -808,11 +813,11 @@ def classic_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater()
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda: classic_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, classic_loop)
     else:   
         process_window.destroy()
 
@@ -826,6 +831,7 @@ def classic_handler() -> None:
     The GUI is displayed in a separate window, and image updates are handled by
     `classic_loop`.
     """
+    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -837,14 +843,16 @@ def classic_handler() -> None:
     looping = True
 
     # Create Pipeline
+    global pipeline
     pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
 
     # Start the keyboard listener in a separate thread
-    listener_thread = threading.Thread(target=keyboard_listener)
-    listener_thread.start()
+    #listener_thread = threading.Thread(target=keyboard_listener)
+    #listener_thread.start()
 
     # Generate the interface first
+    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -860,6 +868,8 @@ def classic_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
+    global input_slot
+    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -867,7 +877,6 @@ def classic_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
-        input_slot = None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -875,7 +884,7 @@ def classic_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run classic_loop frequently to update images
-    process_window.after(1, lambda: classic_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, classic_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -885,7 +894,7 @@ def classic_handler() -> None:
     except :
         pass
     
-def adapter_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def adapter_loop() -> None:
     """
     Capture and process images in a continuous loop for the adapter mode.
 
@@ -897,7 +906,9 @@ def adapter_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     global webcam
     global input_image
     global output_image
+    global pipeline
     global looping
+    global process_window
     
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
@@ -909,11 +920,11 @@ def adapter_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=blended_image)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater()
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda: adapter_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, adapter_loop)
     else:   
         process_window.destroy()
 
@@ -927,6 +938,7 @@ def adapter_handler() -> None:
     The GUI is displayed in a separate window, and image updates are handled by
     `adapter_loop`.
     """
+    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -944,6 +956,7 @@ def adapter_handler() -> None:
     looping = True
 
     # Create Pipeline
+    global pipeline
     pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
@@ -955,6 +968,7 @@ def adapter_handler() -> None:
     listener_thread.start()
 
     # Generate the interface first
+    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -970,6 +984,8 @@ def adapter_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
+    global input_slot
+    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -977,7 +993,6 @@ def adapter_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
-        input_slot = None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -985,14 +1000,14 @@ def adapter_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run adapter_loop frequently to update images
-    process_window.after(1, lambda: adapter_loop(pipeline,process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, adapter_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
     
-def background_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher) -> None:
+def background_loop() -> None:
     """
     Capture and process images in a continuous loop for background image processing.
 
@@ -1006,7 +1021,12 @@ def background_loop(pipeline : SDPipeline, process_window, full_width, full_heig
     global webcam
     global input_image
     global output_image
+    global pipeline
     global looping
+    global process_window
+    global gif_cacher
+    global index
+    global max_index
     
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
@@ -1027,11 +1047,11 @@ def background_loop(pipeline : SDPipeline, process_window, full_width, full_heig
     output_image = pipeline.transform_image(positive_prompt_var.get(), input_image=background_input)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater()
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : background_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
+        process_window.after(1, background_loop)
     else:   
         process_window.destroy()
 
@@ -1048,6 +1068,7 @@ def background_handler() -> None:
     Returns:
         None
     """
+    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -1063,6 +1084,7 @@ def background_handler() -> None:
     looping = True
 
     # Create Pipeline
+    global pipeline
     pipeline = SDPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
@@ -1073,13 +1095,16 @@ def background_handler() -> None:
     listener_thread = threading.Thread(target=keyboard_listener)
     listener_thread.start()
 
-    # Create Gif Cacher and initialize triangular selection
+    global gif_cacher
+    global max_index
+    global index
     gif_cacher = GifFrameCacher(background_gif_var.get())  # Cache every frame of the gif for easier access later on
     gif_cacher.resize_frames(image_size.get(), image_size.get())  # Resize every frame to the correct size
     max_index = gif_cacher.get_total_frames() - 1
     index = 0
 
     # Generate the interface first
+    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -1095,6 +1120,8 @@ def background_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
+    global input_slot
+    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -1102,7 +1129,6 @@ def background_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
-        input_slot= None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -1110,14 +1136,14 @@ def background_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
 
     # Run background_loop frequently to update images
-    process_window.after(1, lambda : background_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
+    process_window.after(1, background_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
 
-def perspective_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def perspective_loop() -> None:
     """
     Continuously captures images from the webcam and processes them for perspective transformation.
 
@@ -1132,8 +1158,10 @@ def perspective_loop(pipeline : SDPipeline, process_window, full_width, full_hei
     global webcam
     global input_image
     global output_image
+    global pipeline
     global looping
-    #global center_x, center_y, box_width, box_height
+    global process_window
+    global center_x, center_y, box_width, box_height
     
     # Capture and process the input image
     input_image = invert_image(webcam.capture_image())
@@ -1158,11 +1186,11 @@ def perspective_loop(pipeline : SDPipeline, process_window, full_width, full_hei
     output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater(output_image, full_width, full_height, input_slot, output_slot)
+    image_updater()
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : perspective_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, perspective_loop)
     else:   
         process_window.destroy()
 
@@ -1177,6 +1205,7 @@ def perspective_handler() -> None:
     Returns:
         None
     """
+    global full_width, full_height
     full_width, full_height = fullsize_image(image_size.get(), image_size.get())
     
     # Check if default prompt
@@ -1188,6 +1217,8 @@ def perspective_handler() -> None:
     looping = True
 
     # Create Pipeline
+    global pipeline
+    global adapter_image
     pipeline = CNPipeline(model_name=model_name_var.get())
     pipeline.accelerate_pipe()
     
@@ -1207,6 +1238,7 @@ def perspective_handler() -> None:
     listener_thread.start()
 
     # Generate the interface first
+    global process_window
     process_window = tk.Toplevel(main_window)
     process_window.title("Generation")
     
@@ -1222,6 +1254,8 @@ def perspective_handler() -> None:
     output_photo = ImageTk.PhotoImage(output_image)
 
     # Create the interface elements
+    global input_slot
+    global output_slot
     if debug_var.get():
         input_slot = tk.Label(process_window, image=input_photo)
         input_slot.image = input_photo
@@ -1229,7 +1263,6 @@ def perspective_handler() -> None:
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=1)
     else:
-        input_slot = None
         output_slot = tk.Label(process_window, image=output_photo)
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
@@ -1237,7 +1270,7 @@ def perspective_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run perspective_loop frequently to update images
-    process_window.after(1, lambda : perspective_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, perspective_loop)
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
