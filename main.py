@@ -143,7 +143,7 @@ class SDPipeline:
         # Set scheduler
         self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
             self.pipe.scheduler.config, 
-            use_safetensors=True
+            use_safetensors=True, timestep_spacing='trailing'
         )
         # Initialize generator
         self.seed = seed
@@ -286,7 +286,7 @@ class CNPipeline:
         # Initialize the SDXLPipe
         self.pipe = StableDiffusionXLControlNetPipeline.from_pretrained(self.model_name, controlnet=self.controlnet, torch_dtype=torch.float16, use_safetensors=True)
         # Set scheduler
-        self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config)
+        self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config,timestep_spacing='trailing')
         # Initialize generator
         self.seed = seed
         self.generator = torch.Generator(device="cuda").manual_seed(seed)
@@ -785,7 +785,7 @@ def image_updater(output_image, full_width, full_height, input_slot, output_slot
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
     
-def classic_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
     """
     Capture and process images in a continuous loop.
 
@@ -793,7 +793,6 @@ def classic_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     and transforms the blended image using a defined pipeline. The function updates the images
     displayed in the GUI and continues to loop until the global `looping` variable is set to False.
     """
-    global webcam
     global input_image
     global output_image
     global looping
@@ -812,11 +811,11 @@ def classic_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda: classic_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     else:   
         process_window.destroy()
 
-def classic_handler() -> None:
+def classic_handler(webcam : WebcamCapture) -> None:
     """
     Initialize and start the classic image processing loop.
 
@@ -875,7 +874,7 @@ def classic_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run classic_loop frequently to update images
-    process_window.after(1, lambda: classic_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -885,7 +884,7 @@ def classic_handler() -> None:
     except :
         pass
     
-def adapter_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
     """
     Capture and process images in a continuous loop for the adapter mode.
 
@@ -894,7 +893,6 @@ def adapter_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     The function updates the images displayed in the GUI and continues to loop until the
     global `looping` variable is set to False.
     """
-    global webcam
     global input_image
     global output_image
     global looping
@@ -913,11 +911,11 @@ def adapter_loop(pipeline : SDPipeline, process_window, full_width, full_height,
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda: adapter_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, lambda: adapter_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     else:   
         process_window.destroy()
 
-def adapter_handler() -> None:
+def adapter_handler(webcam : WebcamCapture) -> None:
     """
     Initialize and start the adapter image processing loop.
 
@@ -985,14 +983,14 @@ def adapter_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run adapter_loop frequently to update images
-    process_window.after(1, lambda: adapter_loop(pipeline,process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, lambda: adapter_loop(webcam,pipeline,process_window, full_width, full_height, input_slot, output_slot))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
     
-def background_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher) -> None:
+def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher) -> None:
     """
     Capture and process images in a continuous loop for background image processing.
 
@@ -1003,7 +1001,6 @@ def background_loop(pipeline : SDPipeline, process_window, full_width, full_heig
 
     The blending of images and frames allows for dynamic background integration in the output image.
     """
-    global webcam
     global input_image
     global output_image
     global looping
@@ -1031,11 +1028,11 @@ def background_loop(pipeline : SDPipeline, process_window, full_width, full_heig
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : background_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
+        process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
     else:   
         process_window.destroy()
 
-def background_handler() -> None:
+def background_handler(webcam : WebcamCapture) -> None:
     """
     Initialize and start the background image processing loop.
 
@@ -1110,14 +1107,14 @@ def background_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
 
     # Run background_loop frequently to update images
-    process_window.after(1, lambda : background_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
+    process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
 
-def perspective_loop(pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
     """
     Continuously captures images from the webcam and processes them for perspective transformation.
 
@@ -1129,7 +1126,6 @@ def perspective_loop(pipeline : SDPipeline, process_window, full_width, full_hei
     Returns:
         None
     """
-    global webcam
     global input_image
     global output_image
     global looping
@@ -1162,11 +1158,11 @@ def perspective_loop(pipeline : SDPipeline, process_window, full_width, full_hei
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : perspective_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     else:   
         process_window.destroy()
 
-def perspective_handler() -> None:
+def perspective_handler(webcam : WebcamCapture) -> None:
     """
     Initializes and starts the perspective transformation image processing loop.
 
@@ -1237,7 +1233,7 @@ def perspective_handler() -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run perspective_loop frequently to update images
-    process_window.after(1, lambda : perspective_loop(pipeline, process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -1606,32 +1602,30 @@ def open_web_feed():
     webbrowser.open("http://"+get_url())
 
 # Open Webcam
-global webcam
 webcam = WebcamCapture(cam_index=0)
 
-using_server=False
+using_server=input("Should the output be broadcast to the server ? Y/N")
+if using_server=="Y" or using_server=="y":
+    # Create server
+    app = Flask(__name__)
 
-# This part creates a Server to view the output using ip/video_feed
-"""
-# Create server
-app = Flask(__name__)
+    @app.route('/')
+    def home():
+        return "Welcome to the Video Stream! Connect using this url and /video_feed"
+    @app.route('/video_feed')        
+    def video_feed():
+        return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/')
-def home():
-    return "Welcome to the Video Stream! Connect using this url and /video_feed"
-@app.route('/video_feed')        
-def video_feed():
-    return Response(send_image_server(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-# Thread to run the Flask app
-def run_flask():
-    app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
-    
-# Start Flask server in a separate thread
-flask_thread = threading.Thread(target=run_flask, daemon=True)
-flask_thread.start()
-using_server=True
-"""
+    # Thread to run the Flask app
+    def run_flask():
+        app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
+        
+    # Start Flask server in a separate thread
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    using_server=True
+else :
+    using_server=False
 
 # Initialize images once before the loop
 global input_image
@@ -1754,10 +1748,10 @@ if using_server :
     url_button.config(text="Hosting on URL :"+get_url(),state=tk.NORMAL)
 
 # Start Buttons
-tk.Button(parameters_frame, text="Standard FXs",command=classic_handler,font="Large").grid(row=10,column=0,sticky="nsew")
-tk.Button(adapter_buttons_frame, text="Adapter FXs",command=adapter_handler,font="Large").grid(row=0,column=0,sticky="nsew")
-tk.Button(adapter_buttons_frame, text="Background FXs",command=background_handler,font="Large").grid(row=0,column=1,sticky="nsew")
-tk.Button(parameters_frame, text="Perspective FXs",command=perspective_handler,font="Large").grid(row=10,column=2,sticky="nsew")
+tk.Button(parameters_frame, text="Standard FXs",command=lambda : classic_handler(webcam),font="Large").grid(row=10,column=0,sticky="nsew")
+tk.Button(adapter_buttons_frame, text="Adapter FXs",command=lambda : adapter_handler(webcam),font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Button(adapter_buttons_frame, text="Background FXs",command=lambda : background_handler(webcam),font="Large").grid(row=0,column=1,sticky="nsew")
+tk.Button(parameters_frame, text="Perspective FXs",command=lambda : perspective_handler(webcam),font="Large").grid(row=10,column=2,sticky="nsew")
 
 # Configure rows and columns for each frame
 for frame in [main_window, parameters_frame, standard_parameters_frame, adapter_parameters_frame,
