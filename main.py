@@ -1604,7 +1604,7 @@ def open_web_feed():
 # Open Webcam
 webcam = WebcamCapture(cam_index=0)
 
-using_server=input("Should the output be broadcast to the server ? Y/N")
+using_server=input("Should the output be broadcast to the server ? Y/N   -> ")
 if using_server=="Y" or using_server=="y":
     # Create server
     app = Flask(__name__)
