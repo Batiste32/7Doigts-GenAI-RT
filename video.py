@@ -106,6 +106,8 @@ class VideoPlayer:
 
         self.video_filename=None
         self.video=None
+        self.index=0
+        self.frame_number=0
 
     def _store_frames(self):
         """Extracts all frames from the video and stores them as PIL Images."""
@@ -1467,11 +1469,14 @@ def paste_color_pixels(img1: Image.Image, img2: Image.Image) -> Image.Image:
 
     # Loop through each pixel in img1
     for i, item in enumerate(data1):
-        # Check if the pixel matches the color_code
-        if (item[0] / 255, item[1] / 255, item[2] / 255) == color_code:  # Normalize to 0-1 range
-            new_data.append(item)  # Keep the pixel from img1
-        else:
-            new_data.append(data2[i])  # Keep the pixel from img2
+        try :
+            # Check if the pixel matches the color_code
+            if (item[0] / 255, item[1] / 255, item[2] / 255) == color_code:  # Normalize to 0-1 range
+                new_data.append(item)  # Keep the pixel from img1
+            else:
+                new_data.append(data2[i])  # Keep the pixel from img2
+        except :
+            pass
 
     # Create a new image for the result
     result_img = Image.new("RGBA", img2.size)
@@ -1495,6 +1500,7 @@ presets = {
     "11":["perspective, abstract wallpaper, bright yellow and purple, highly detailed, intricate patterns","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
     "12":["waterfall in the middle of a rock cliff","low quality, blur, nsfw, text, watermark","Images/rock_cliff.png","Images/rock_cliff.gif","True",0.55,"Background Effect"],
     "13":["waterfall","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
+    "14":["perspective, abstract color blocks, bright primary colors, flat saturated, highly detailed","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
            }
 
 def load_preset() -> None:
