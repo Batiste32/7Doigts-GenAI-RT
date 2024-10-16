@@ -1487,10 +1487,10 @@ def paste_color_pixels(img1: Image.Image, img2: Image.Image) -> Image.Image:
 # Presets : positive_prompt, negative_prompt, adapter_image, background_gif, should_invert_image_?, blend_value, type_of_effect
 presets = {
     "0":["","","","",""],
-    "1":["abstract, sparks, shiny, electricity, gold","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
+    "1":["abstract, sparks, shiny, electricity, gold","low quality, blur, nsfw, text, watermark, man, woman, silhouette, wire, plug, outlet, fuse, lightbulb","","","True",0.55,"Standard Effect"],
     "2":["abstract, cobweb, silk, threads, strings","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
     "3":["paper origami, abstract","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
-    "4":["side view of dark modern skyscrapers with an opening to the sky in the middle","low quality, blur, nsfw, text, watermark","Images/building.png","","True",0.55,"Adapter Effect"],
+    "4":["side view of dark modern skyscrapers with an opening to blue sky with clouds in the middle","low quality, blur, nsfw, text, watermark","Images/building.png","","True",0.55,"Adapter Effect"],
     "5":["abstract particles","low quality, blur, nsfw, text, watermark","Images/particles.png","","True",0.55,"Adapter Effect"],
     "6":["abstract, dunes made of sand","low quality, blur, nsfw, text, watermark","Images/dunes.png","","True",0.55,"Adapter Effect"],
     "7":["waterfall in the middle of a forest","low quality, blur, nsfw, text, watermark","Images/forest.png","Images/forest.gif","True",0.4,"Background Effect"],
@@ -1499,8 +1499,10 @@ presets = {
     "10":["perspective, brick wall, highly detailed","low quality, blur, nsfw, text, watermark","Images/bricks.png","","True",0.55,"Perspective Effect"],
     "11":["perspective, abstract wallpaper, bright yellow and purple, highly detailed, intricate patterns","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
     "12":["waterfall in the middle of a rock cliff","low quality, blur, nsfw, text, watermark","Images/rock_cliff.png","Images/rock_cliff.gif","True",0.55,"Background Effect"],
-    "13":["waterfall","low quality, blur, nsfw, text, watermark","","","True",0.55,"Standard Effect"],
+    "13":["waterfall","low quality, blur, nsfw, text, watermark, man, woman, silhouette","","","True",0.55,"Standard Effect"],
     "14":["perspective, abstract color blocks, bright primary colors, flat saturated, highly detailed","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
+    "15":["perspective, black and white, flat, highly detailed","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
+    "16":["perspective, abstract color blocks, bright primary colors, flat saturated, highly detailed","low quality, blur, nsfw, text, watermark","","","True",0.55,"Perspective Effect"],
            }
 
 def load_preset() -> None:
