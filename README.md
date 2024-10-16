@@ -30,6 +30,13 @@ Clone this repository using `git clone https://github.com/Batiste32/7Doigts-GenA
 
 ### 2. (Recommended) Creating a VENV
 
+Express way (check your Python and CUDA before) !
+Run the file :
+
+```bash
+setup.bat
+```
+
 Creating a virtual environment (venv) is recommended in order to preserve your other installations.
 This will allow you to have a separate Python installation with the correct packages.
 This project was built for **Python 3.11**.
@@ -37,9 +44,7 @@ This project was built for **Python 3.11**.
 ```bash
 cd 7Doigts-GenAI-RT
 python -m venv .venv
-cd .venv/Scripts
-activate
-cd ../..
+call .venv/Scripts/activate
 ```
 
 ### 3. Installing the libraries
@@ -68,6 +73,14 @@ pip install -U xformers --index-url https://download.pytorch.org/whl/cu121
 
 To make this project work, you will need a camera connected to your computer and **available**
 (ie. not being used by another software).
+
+You can launch the program with this file :
+
+```bash
+launcher.bat
+```
+
+Otherwise, activate your venv and run :
 
 ```bash
 python.exe main.py
