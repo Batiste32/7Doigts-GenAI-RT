@@ -47,13 +47,19 @@ cd ../..
 This project was built for **Python 3.11** using **CUDA 1.12**.
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
+```
+
+Retrograde numpy to version 1 :
+
+```bash
+pip install numpy==1.26.4
 ```
 
 Then install the correct torch installation. If you use a different CUDA (check it in `Programs/NVIDIA GPU Computing Toolkit`), please refer to [Torch official site](https://pytorch.org/get-started/locally/) to get the correct version.
 
 ```bash
-python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install -U xformers --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## III - Using the project
@@ -64,7 +70,7 @@ To make this project work, you will need a camera connected to your computer and
 (ie. not being used by another software).
 
 ```bash
-python main.py
+python.exe main.py
 ```
 
 An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file. To make sure it has taken effect, you should restart the program.
