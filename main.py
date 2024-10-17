@@ -832,8 +832,6 @@ def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
     if looping:
         process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, out))
     else:   
-        if out :
-            out.release()
         process_window.destroy()
 
 def classic_handler(webcam : WebcamCapture) -> None:
@@ -906,9 +904,11 @@ def classic_handler(webcam : WebcamCapture) -> None:
     # Wait for the keyboard listener thread to finish
     try :
         listener_thread.join()
-        print("Exited loop and cleared thread")
     except :
         pass
+    if out :
+        out.release()
+    print("Exited loop and cleared objects")
     
 def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, out) -> None:
     """
@@ -945,8 +945,6 @@ def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
     if looping:
         process_window.after(1, lambda: adapter_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, out))
     else:   
-        if out :
-            out.release()
         process_window.destroy()
 
 def adapter_handler(webcam : WebcamCapture) -> None:
@@ -1025,9 +1023,13 @@ def adapter_handler(webcam : WebcamCapture) -> None:
     process_window.after(1, lambda: adapter_loop(webcam,pipeline,process_window, full_width, full_height, input_slot, output_slot, out))
     process_window.mainloop()
 
-    # Wait for the keyboard listener thread to finish
-    listener_thread.join()
-    print("Exited loop and cleared thread")
+    try : # Wait for the keyboard listener thread to finish
+        listener_thread.join()
+    except :
+        pass
+    if out :
+        out.release()
+    print("Exited loop and cleared objects")
     
 def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher, out) -> None:
     """
@@ -1074,9 +1076,7 @@ def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_windo
     # Loop or destroy the process window
     if looping:
         process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher, out))
-    else:   
-        if out :
-            out.release()
+    else:
         process_window.destroy()
 
 def background_handler(webcam : WebcamCapture) -> None:
@@ -1162,10 +1162,14 @@ def background_handler(webcam : WebcamCapture) -> None:
     process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher, out))
     process_window.mainloop()
 
-    # Wait for the keyboard listener thread to finish
-    listener_thread.join()
-    print("Exited loop and cleared thread")
-
+    try : # Wait for the keyboard listener thread to finish
+        listener_thread.join()
+    except :
+        pass
+    if out :
+        out.release()
+    print("Exited loop and cleared objects")
+    
 def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, center_x,center_y,box_width,box_height,out) -> None:
     """
     Continuously captures images from the webcam and processes them for perspective transformation.
@@ -1212,8 +1216,6 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     if looping:
         process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height,out))
     else:   
-        if out :
-            out.release()
         process_window.destroy()
 
 def perspective_handler(webcam : WebcamCapture) -> None:
@@ -1294,9 +1296,13 @@ def perspective_handler(webcam : WebcamCapture) -> None:
     process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height,out))
     process_window.mainloop()
 
-    # Wait for the keyboard listener thread to finish
-    listener_thread.join()
-    print("Exited loop and cleared thread")
+    try : # Wait for the keyboard listener thread to finish
+        listener_thread.join()
+    except :
+        pass
+    if out :
+        out.release()
+    print("Exited loop and cleared objects")
 
 def resize_longer_side(image: Image.Image, size: int) -> Image.Image:
     """
@@ -1664,7 +1670,6 @@ if using_server=="Y" or using_server=="y":
         return 'Shutting down...'
     def shutdown_trigger():
         requests.post('http://localhost:3142/shutdown')
-    # Thread to run the Flask app
     def run_flask():
         app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
         
