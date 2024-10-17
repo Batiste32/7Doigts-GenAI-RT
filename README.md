@@ -13,8 +13,10 @@
     - [Main Interface](#main-interface)
     - [Generation Interface](#generation-interface)
     - [The different effects](#the-different-effects)
+  - [IV - Advanced uses](#iv---advanced-uses)
     - [Visualising the effects by WiFi (Flask server)](#visualising-the-effects-by-wifi-flask-server)
-    - [Using a video as an input](#using-a-video-as-an-input)
+    - [Recording the output](#recording-the-output)
+    - [Using a video as an input (WIP)](#using-a-video-as-an-input-wip)
 
 
 ## I - Introduction
@@ -88,11 +90,13 @@ python.exe main.py
 
 An input field should appear, asking for a model path. This is where the models will be (down)loaded. It should only ask this once as this path will be set as a system environment variable. Current path will also be written in the config file. To make sure it has taken effect, you should restart the program.
 
-Afterward, a message will be displayed in the terminal asking wehter or not the output should be broadcast to a server : 
+Afterward, a message will be displayed in the terminal asking wether or not the output should be broadcast to a server :
 
 ```
 Should the output be broadcast to the server ? Y/N   ->
 ```
+
+Answer `Y` or `N`.
 
 **Warning :** Using the server might degrade performances or slow the program down.
 
@@ -146,6 +150,8 @@ Each of them requires different input fields. To explore each possibility, it is
 | **Background effect**  | ✓                | ✓                         | ✓                     | ✓                     | ✓               |
 | **Perspective effect** | ✓                | ✓                         | _(optional)_          |                       |                 |
 
+## IV - Advanced uses
+
 ### Visualising the effects by WiFi (Flask server)
 
 You can use a Flask server to view your output in real time on any device by answering `Y` when booting the program.
@@ -164,7 +170,18 @@ The first one will indicate the URL to enter to access the broadcast, clicking i
 The second one will kill the application and close the server correctly.
 **This is the best way to close the app, otherwise you will have to kill the terminal / kernel.**
 
-### Using a video as an input
+### Recording the output
+
+On the left of the interface, you will find a checkbox and entry to record the output.
+
+<p align="center">
+    <img src="/assets/screen-record.PNG" alt="Picture of the recording parameters" height="150"/>
+</p>
+
+This will record every frame generated as a video file (.avi) with 3 FPS.
+The file will be located in the project folder.
+
+### Using a video as an input (WIP)
 
 To input a video instead of a webcam, launch the video script instead of the main one :
 ```bash
