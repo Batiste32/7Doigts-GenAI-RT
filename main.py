@@ -788,13 +788,19 @@ def image_updater(full_width, full_height, input_slot, output_slot, out=None) ->
     
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
-    if out :
+    if out : # Saving frame to video :
+        if debug_var.get():
+            frame = concatenate_images(input_image,output_image).resize((full_width, full_height//2), Image.Resampling.LANCZOS)
+            out.write(cv2.cvtColor(np.asarray(frame), cv2.COLOR_BGR2RGB))    
         out.write(cv2.cvtColor(np.asarray(output_image), cv2.COLOR_BGR2RGB))
     
 def start_record(full_width,full_height):
     # Define video codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec
-    out = cv2.VideoWriter(video_save_var.get()+'.avi', fourcc, 3, (full_width,full_height))  # Output video file
+    if debug_var.get():
+        out = cv2.VideoWriter(video_save_var.get()+'.avi', fourcc, 3, (full_width,full_height//2))  # Output video file for output and input
+    else :
+        out = cv2.VideoWriter(video_save_var.get()+'.avi', fourcc, 3, (full_width,full_height))  # Output video file for output only (square ratio)
     print("Started record on file : "+video_save_var.get()+".avi")
     return(out)
     
