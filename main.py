@@ -766,7 +766,7 @@ def fullsize_image(img_width: int, img_height: int) -> tuple[int, int]:
     
     return new_height, new_width
 
-def image_updater(full_width, full_height, input_slot, output_slot) -> None:
+def image_updater(full_width, full_height, input_slot, output_slot, out=None) -> None:
     """
     Update the input and output images in the GUI.
 
@@ -788,8 +788,17 @@ def image_updater(full_width, full_height, input_slot, output_slot) -> None:
     
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
+    if out :
+        out.write(cv2.cvtColor(np.asarray(output_image), cv2.COLOR_BGR2RGB))
     
-def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def start_record(full_width,full_height):
+    # Define video codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec
+    out = cv2.VideoWriter(video_save_var.get()+'.avi', fourcc, 3, (full_width,full_height))  # Output video file
+    print("Started record on file : "+video_save_var.get()+".avi")
+    return(out)
+    
+def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, out=None) -> None:
     """
     Capture and process images in a continuous loop.
 
@@ -817,12 +826,14 @@ def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
         output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater(full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot,out)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, out))
     else:   
+        if out :
+            out.release()
         process_window.destroy()
 
 def classic_handler(webcam : WebcamCapture) -> None:
@@ -852,6 +863,11 @@ def classic_handler(webcam : WebcamCapture) -> None:
     # Start the keyboard listener in a separate thread
     listener_thread = threading.Thread(target=keyboard_listener)
     listener_thread.start()
+
+    # If asked, start the record
+    out = None
+    if record_var.get():
+        out = start_record(full_width,full_height)
 
     # Generate the interface first
     process_window = tk.Toplevel(main_window)
@@ -884,7 +900,7 @@ def classic_handler(webcam : WebcamCapture) -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run classic_loop frequently to update images
-    process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,out))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -894,7 +910,7 @@ def classic_handler(webcam : WebcamCapture) -> None:
     except :
         pass
     
-def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot) -> None:
+def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, out) -> None:
     """
     Capture and process images in a continuous loop for the adapter mode.
 
@@ -923,12 +939,14 @@ def adapter_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
         output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater(full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot,out)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda: adapter_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot))
+        process_window.after(1, lambda: adapter_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, out))
     else:   
+        if out :
+            out.release()
         process_window.destroy()
 
 def adapter_handler(webcam : WebcamCapture) -> None:
@@ -963,6 +981,11 @@ def adapter_handler(webcam : WebcamCapture) -> None:
     
     adapter_image = load_image(adapter_image_var.get())
     pipeline.add_ip_adapter(adapter_image)
+
+    # If asked, start the record
+    out = None
+    if record_var.get():
+        out = start_record(full_width,full_height)
 
     # Start the keyboard listener in a separate thread
     listener_thread = threading.Thread(target=keyboard_listener)
@@ -999,14 +1022,14 @@ def adapter_handler(webcam : WebcamCapture) -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run adapter_loop frequently to update images
-    process_window.after(1, lambda: adapter_loop(webcam,pipeline,process_window, full_width, full_height, input_slot, output_slot))
+    process_window.after(1, lambda: adapter_loop(webcam,pipeline,process_window, full_width, full_height, input_slot, output_slot, out))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
     
-def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher) -> None:
+def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher, out) -> None:
     """
     Capture and process images in a continuous loop for background image processing.
 
@@ -1046,12 +1069,14 @@ def background_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_windo
         output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater(full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot, out)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
+        process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher, out))
     else:   
+        if out :
+            out.release()
         process_window.destroy()
 
 def background_handler(webcam : WebcamCapture) -> None:
@@ -1087,6 +1112,11 @@ def background_handler(webcam : WebcamCapture) -> None:
     
     adapter_image = load_image(adapter_image_var.get())
     pipeline.add_ip_adapter(adapter_image)
+
+    # If asked, start the record
+    out = None
+    if record_var.get():
+        out = start_record(full_width,full_height)
 
     # Start the keyboard listener in a separate thread
     listener_thread = threading.Thread(target=keyboard_listener)
@@ -1129,14 +1159,14 @@ def background_handler(webcam : WebcamCapture) -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
 
     # Run background_loop frequently to update images
-    process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher))
+    process_window.after(1, lambda : background_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, max_index, index, gif_cacher, out))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
     listener_thread.join()
     print("Exited loop and cleared thread")
 
-def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, center_x,center_y,box_width,box_height) -> None:
+def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, center_x,center_y,box_width,box_height,out) -> None:
     """
     Continuously captures images from the webcam and processes them for perspective transformation.
 
@@ -1176,12 +1206,14 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
         output_image = paste_color_pixels(colored_input, output_image)
     
     # Update the GUI
-    image_updater(full_width, full_height, input_slot, output_slot)
+    image_updater(full_width, full_height, input_slot, output_slot, out)
     
     # Loop or destroy the process window
     if looping:
-        process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height))
+        process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height,out))
     else:   
+        if out :
+            out.release()
         process_window.destroy()
 
 def perspective_handler(webcam : WebcamCapture) -> None:
@@ -1219,6 +1251,11 @@ def perspective_handler(webcam : WebcamCapture) -> None:
         adapter_image = load_image(adapter_image_var.get())
         pipeline.add_ip_adapter(adapter_image)
 
+    # If asked, start the record
+    out = None
+    if record_var.get():
+        out = start_record(full_width,full_height)
+
     # Start the keyboard listener in a separate thread
     listener_thread = threading.Thread(target=keyboard_listener)
     listener_thread.start()
@@ -1254,7 +1291,7 @@ def perspective_handler(webcam : WebcamCapture) -> None:
         process_window.columnconfigure(0, weight=1, minsize=75)
         
     # Run perspective_loop frequently to update images
-    process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height))
+    process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height,out))
     process_window.mainloop()
 
     # Wait for the keyboard listener thread to finish
@@ -1749,18 +1786,25 @@ color_label.grid(row=2,column=0,sticky="nsew")
 silhouette_var = tk.BooleanVar()
 tk.Checkbutton(perspective_frame, variable=silhouette_var, text="Paste silhouette on output ?",font="Medium").grid(row=3,column=0,sticky="nsew")
 
+# Should record ?
+record_var=tk.BooleanVar()
+tk.Checkbutton(global_settings_frame, variable=record_var, text="Record Output ?",font="Medium").grid(row=0,column=0,sticky="nsew")
+tk.Label(global_settings_frame,text="Output filename (no extension)",font="Medium").grid(row=1,column=0,sticky="nsew")
+video_save_var=tk.StringVar()
+tk.Entry(global_settings_frame, textvariable=video_save_var,font="Medium").grid(row=2,column=0,sticky="nsew")
+
 # Debug Mode
 debug_var = tk.BooleanVar()
-tk.Checkbutton(global_settings_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=0,column=0,sticky="nsew")
+tk.Checkbutton(global_settings_frame, variable=debug_var, text="Enable Debug ?",font="Medium").grid(row=3,column=0,sticky="nsew")
 
 # Open Preview with URL
 url_button=tk.Button(global_settings_frame, text="Server unactive",font="Medium",command=open_web_feed)
 url_button.config(state=tk.DISABLED)
-url_button.grid(row=1,column=0,sticky="nsew")
+url_button.grid(row=5,column=0,sticky="nsew")
 if using_server :
     url_button.config(text="Hosting on URL : "+get_url(),state=tk.NORMAL)
     kill_button=tk.Button(global_settings_frame, text="/!\ Shutdown Server and App",font="Large",command=shutdown_trigger,bg="red",fg="white")
-    kill_button.grid(row=2,column=0,sticky="nsew")
+    kill_button.grid(row=6,column=0,sticky="nsew")
 
 # Start Buttons
 tk.Button(parameters_frame, text="Standard FXs",command=lambda : classic_handler(webcam),font="Large").grid(row=10,column=0,sticky="nsew")
@@ -1800,6 +1844,11 @@ except :
 
 try :
     shutdown_trigger()
+except :
+    pass
+
+try :
+    out.release()
 except :
     pass
 
