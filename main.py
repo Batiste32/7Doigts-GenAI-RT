@@ -1708,10 +1708,12 @@ large_font=font.Font(name="Large", family = "Helvetica", size=font_size*5)
 medium_font=font.Font(name="Medium", family = "Helvetica", size=font_size*3)
 
 # Frames creation
+header_frame = tk.Frame(main_window)
+header_frame.grid(row=1,column=1,sticky="nsew")
 global_settings_frame = tk.Frame(main_window)
-global_settings_frame.grid(row=1,column=0,sticky="nsew")
+global_settings_frame.grid(row=2,column=0,sticky="nsew")
 parameters_frame = tk.Frame(main_window)
-parameters_frame.grid(row=1, column=1, sticky="nsew")
+parameters_frame.grid(row=2, column=1, sticky="nsew")
 standard_parameters_frame = tk.Frame(parameters_frame)
 standard_parameters_frame.grid(row=0, column=0, sticky="nsew")
 adapter_parameters_frame = tk.Frame(parameters_frame)
@@ -1739,7 +1741,7 @@ logo.configure(background='black')
 logo.grid(row=0,column=1, sticky="ew")
 
 # Standard Parameters
-tk.Label(standard_parameters_frame,text="Parameters for Standard FXs",font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Label(header_frame,text="Parameters for Standard FXs",font="Large").grid(row=0,column=0,sticky="nsew")
 preset_var = tk.StringVar()
 tk.Label(standard_parameters_frame, text="Preset Selection",font="Medium").grid(row=1,column=0,sticky="nsew")
 tk.Spinbox(standard_parameters_frame, from_=0, to=len(presets)-1, font="Medium", textvariable=preset_var, command=load_preset, state='readonly').grid(row=1,column=1,sticky="nsew")
@@ -1771,7 +1773,8 @@ model_name_entry = tk.Entry(standard_parameters_frame,textvariable=model_name_va
 model_name_entry.grid(row=9,column=1,sticky="nsew")
 
 # Adapter Parameters
-tk.Label(adapter_parameters_frame,text="Parameters for Adapter FXs",font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Label(header_frame,text="Parameters for Adapter",font="Large").grid(row=0,column=1,sticky="nsew")
+tk.Label(header_frame,text="/ Background FXs",font="Large").grid(row=0,column=2,sticky="nsew")
 adapter_image_var = tk.StringVar()
 tk.Button(adapter_row_frame, text="Select Adapter Image", command=upload_adapter_image).grid(row=0,column=0,sticky="nsew")
 adapter_image_entry = tk.Entry(adapter_row_frame, textvariable=adapter_image_var, font="Medium")
@@ -1788,7 +1791,7 @@ background_preview = tk.Label(adapter_parameters_frame,image=adapter_tk_image)
 background_preview.grid(row=2,column=1,sticky="nsew")
 
 # Perspective Parameters
-tk.Label(perspective_frame,text="Parameters for Perspective FXs",font="Large").grid(row=0,column=0,sticky="nsew")
+tk.Label(header_frame,text="Parameters for Perspective FXs",font="Large").grid(row=0,column=3,sticky="nsew")
 global color_code
 color_code=(1,1,1)
 tk.Button(perspective_frame, text="Choose Color", command=choose_color, font="Medium").grid(row=1,column=0,sticky="nsew")
