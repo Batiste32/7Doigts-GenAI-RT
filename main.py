@@ -803,7 +803,7 @@ def start_record(full_width,full_height):
         out = cv2.VideoWriter(video_save_var.get()+'.avi', fourcc, 3, (full_width,full_height))  # Output video file for output only (square ratio)
     print("Started record on file : "+video_save_var.get()+".avi")
     return(out)
-    
+
 def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, full_width, full_height, input_slot, output_slot, out=None) -> None:
     """
     Capture and process images in a continuous loop.

@@ -7,7 +7,7 @@
         ""
     ],
     "1": [
-        "abstract, sparks, shiny, electricity, gold",
+        "abstract, sparkles, shiny, energy, lightning, gold",
         "low quality, blur, nsfw, text, watermark, man, woman, silhouette, wire, plug, outlet, fuse, lightbulb",
         "",
         "",
@@ -45,14 +45,14 @@
     "5": [
         "abstract particles",
         "low quality, blur, nsfw, text, watermark",
-        "Images/particles.png",
+        "Images/particles3.jpg",
         "",
         "True",
         0.55,
         "Adapter Effect"
     ],
     "6": [
-        "abstract, dunes made of sand",
+        "abstract, dunes made of sand, dust, clouds",
         "low quality, blur, nsfw, text, watermark",
         "Images/dunes.png",
         "",
@@ -75,7 +75,7 @@
         "Images/underwater.png",
         "Images/underwater.gif",
         "True",
-        0.4,
+        0.2,
         "Background Effect"
     ],
     "9": [
@@ -115,13 +115,13 @@
         "Background Effect"
     ],
     "13": [
-        "waterfall",
+        "Waterfall in the middle of night sky",
         "low quality, blur, nsfw, text, watermark, man, woman, silhouette",
-        "",
+        "Images/waterfall-night2.jfif.png",
         "",
         "True",
         0.55,
-        "Standard Effect"
+        "Adapter Effect"
     ],
     "14": [
         "perspective, abstract color blocks, bright primary colors, flat saturated, highly detailed",
@@ -142,12 +142,30 @@
         "Perspective Effect"
     ],
     "16": [
-        "perspective, abstract color blocks, bright primary colors, flat saturated, highly detailed",
+        "perspective, abstract color blocks, pink and violet, flat saturated, highly detailed",
         "low quality, blur, nsfw, text, watermark",
         "",
         "",
         "True",
         0.55,
         "Perspective Effect"
-    ]
+    ],
+    "17": [
+    	"character in colorful stained glass",
+	    "low quality, blur, nsfw, text, watermark",
+	    "Images/vitrail3.jpg",
+        "",
+	    "True",
+	    0.55,
+	    "Adapter Effect"
+   ],
+   "18":[
+	    "character in colorful stained glass window",
+	    "low quality, blur, nsfw, text, watermark",
+	    "Images/vitrail.jpg",
+        "",
+	    "True",
+	    0.55,
+	    "Adapter Effect"
+   ]
 }
