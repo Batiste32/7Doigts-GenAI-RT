@@ -778,13 +778,21 @@ def image_updater(full_width, full_height, input_slot, output_slot, out=None) ->
     global input_image
     global photo_output
     global output_image
+    # EDIT
+    global fullsize_image
+    
+    # EDIT
+    fullsize_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
     
     # Update GUI visuals
     if debug_var.get():  # Input only in debug mode
         photo_input = ImageTk.PhotoImage(input_image)
         input_slot.config(image=photo_input)
     else:
-        output_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
+        # EDIT
+        output_image = fullsize_image
+        # output_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
+        
     
     photo_output = ImageTk.PhotoImage(output_image)
     output_slot.config(image=photo_output)
@@ -1614,7 +1622,7 @@ def upload_gif() -> None:
     except:
         pass
     gif_thread = threading.Thread(target=cycle_gif_loop)
-    gif_thread.daemon = True
+    #gif_thread.daemon = True
     gif_thread.start()
 
 def send_image_server() -> Generator[bytes, None, None]:
@@ -1630,11 +1638,11 @@ def send_image_server() -> Generator[bytes, None, None]:
     Yields:
         bytes: The JPEG image data in a multipart response format.
     """
-    global output_image
+    global fullsize_image
     while True:
-        if output_image is not None:
-            numpy_image = np.array(output_image)  # Convert from RGB to BGR
-            bgr_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
+        if fullsize_image is not None:
+            numpy_image = np.array(fullsize_image)  
+            bgr_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR) # Convert from RGB to BGR
             _, buffer = cv2.imencode('.jpg', bgr_image)
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
@@ -1680,7 +1688,7 @@ if using_server=="Y" or using_server=="y":
         app.run(host='0.0.0.0', port=3142)  # Run Flask on port 3142
         
     # Start Flask server in a separate thread
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread = threading.Thread(target=run_flask)#, daemon=True)
     flask_thread.start()
     using_server=True
 else :
