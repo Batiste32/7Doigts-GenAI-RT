@@ -779,10 +779,10 @@ def image_updater(full_width, full_height, input_slot, output_slot, out=None) ->
     global photo_output
     global output_image
     # EDIT
-    global fullsize_image
+    global full_image
     
     # EDIT
-    fullsize_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
+    full_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
     
     # Update GUI visuals
     if debug_var.get():  # Input only in debug mode
@@ -790,7 +790,7 @@ def image_updater(full_width, full_height, input_slot, output_slot, out=None) ->
         input_slot.config(image=photo_input)
     else:
         # EDIT
-        output_image = fullsize_image
+        output_image = full_image
         # output_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
         
     
@@ -1461,6 +1461,7 @@ def paste_color_pixels(img1: Image.Image, img2: Image.Image) -> Image.Image:
     return result_img  # Return the modified img2
 
 # Load presets from the JSON file
+# Presets structure : positive, negative, adapter, background, should_invert_camera_?, blending_value, effect_type
 with open('presets.json', 'r') as file:
     presets = json.load(file)
 
@@ -1625,6 +1626,9 @@ def upload_gif() -> None:
     #gif_thread.daemon = True
     gif_thread.start()
 
+global full_image
+full_image = None
+
 def send_image_server() -> Generator[bytes, None, None]:
     """
     A generator function that continuously sends the current output image
@@ -1638,10 +1642,10 @@ def send_image_server() -> Generator[bytes, None, None]:
     Yields:
         bytes: The JPEG image data in a multipart response format.
     """
-    global fullsize_image
+    global full_image
     while True:
-        if fullsize_image is not None:
-            numpy_image = np.array(fullsize_image)  
+        if full_image is not None:
+            numpy_image = np.array(full_image)  
             bgr_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR) # Convert from RGB to BGR
             _, buffer = cv2.imencode('.jpg', bgr_image)
             frame = buffer.tobytes()
