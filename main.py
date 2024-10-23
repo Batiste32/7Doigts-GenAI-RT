@@ -778,10 +778,8 @@ def image_updater(full_width, full_height, input_slot, output_slot, out=None) ->
     global input_image
     global photo_output
     global output_image
-    # EDIT
     global full_image
     
-    # EDIT
     full_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
     
     # Update GUI visuals
@@ -789,7 +787,6 @@ def image_updater(full_width, full_height, input_slot, output_slot, out=None) ->
         photo_input = ImageTk.PhotoImage(input_image)
         input_slot.config(image=photo_input)
     else:
-        # EDIT
         output_image = full_image
         # output_image = output_image.resize((full_width, full_height), Image.Resampling.LANCZOS)
         
@@ -882,7 +879,7 @@ def classic_handler(webcam : WebcamCapture) -> None:
         out = start_record(full_width,full_height)
 
     # Generate the interface first
-    process_window = tk.Toplevel(main_window)
+    process_window = tk.Toplevel(main_window,bg='black')
     process_window.title("Generation")
     
     global input_image
@@ -898,14 +895,14 @@ def classic_handler(webcam : WebcamCapture) -> None:
 
     # Create the interface elements
     if debug_var.get():
-        input_slot = tk.Label(process_window, image=input_photo)
+        input_slot = tk.Label(process_window, image=input_photo,bg='black')
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=1)
     else:
         input_slot = None
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)
@@ -1004,7 +1001,7 @@ def adapter_handler(webcam : WebcamCapture) -> None:
     listener_thread.start()
 
     # Generate the interface first
-    process_window = tk.Toplevel(main_window)
+    process_window = tk.Toplevel(main_window,bg='black')
     process_window.title("Generation")
     
     global input_image
@@ -1020,14 +1017,14 @@ def adapter_handler(webcam : WebcamCapture) -> None:
 
     # Create the interface elements
     if debug_var.get():
-        input_slot = tk.Label(process_window, image=input_photo)
+        input_slot = tk.Label(process_window, image=input_photo,bg='black')
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=1)
     else:
         input_slot = None
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)
@@ -1143,7 +1140,7 @@ def background_handler(webcam : WebcamCapture) -> None:
     index = 0
 
     # Generate the interface first
-    process_window = tk.Toplevel(main_window)
+    process_window = tk.Toplevel(main_window,bg='black')
     process_window.title("Generation")
     
     global input_image
@@ -1159,14 +1156,14 @@ def background_handler(webcam : WebcamCapture) -> None:
 
     # Create the interface elements
     if debug_var.get():
-        input_slot = tk.Label(process_window, image=input_photo)
+        input_slot = tk.Label(process_window, image=input_photo,bg='black')
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=1)
     else:
         input_slot= None
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)
@@ -1277,7 +1274,7 @@ def perspective_handler(webcam : WebcamCapture) -> None:
     listener_thread.start()
 
     # Generate the interface first
-    process_window = tk.Toplevel(main_window)
+    process_window = tk.Toplevel(main_window,bg='black')
     process_window.title("Generation")
     
     global input_image
@@ -1293,14 +1290,14 @@ def perspective_handler(webcam : WebcamCapture) -> None:
 
     # Create the interface elements
     if debug_var.get():
-        input_slot = tk.Label(process_window, image=input_photo)
+        input_slot = tk.Label(process_window, image=input_photo,bg='black')
         input_slot.image = input_photo
         input_slot.grid(row=0, column=0)
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=1)
     else:
         input_slot = None
-        output_slot = tk.Label(process_window, image=output_photo)
+        output_slot = tk.Label(process_window, image=output_photo,bg='black')
         output_slot.grid(row=0, column=0)
         process_window.attributes('-fullscreen', True)
         process_window.rowconfigure(0, weight=1, minsize=50)

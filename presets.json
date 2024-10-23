@@ -163,9 +163,18 @@
 	    "character in colorful stained glass window",
 	    "low quality, blur, nsfw, text, watermark",
 	    "Images/vitrail.jpg",
-        "",
+            "",
 	    "True",
 	    0.55,
 	    "Adapter Effect"
-   ]
+   ],
+   "19":[
+	    "abstract, galaxy, plasma, fluid shapes",
+	    "low quality, blur, nsfw, text, watermark",
+	    "Images/plasma.png",
+	    "",
+	    "True",
+   	    0.3,
+	    "Adapter Effect"
+  ]
 }
