@@ -1,0 +1,25 @@
+{
+    "0": [
+        "",
+        "",
+        "",
+        "",
+        ""
+    ],
+    "1": [
+        "abstract, sparkles, shiny, energy, lightning, gold/abstract, cobweb, silk, threads, strings/paper origami, abstract",
+        "low quality, blur, nsfw, text, watermark, man, woman, silhouette, wire, plug, outlet, fuse, lightbulb/low quality, blur, nsfw, text, watermark/low quality, blur, nsfw, text, watermark",
+        "True/True/True",
+        "0.55/0.55/0.55",
+        "0/300/600",
+        "Standard Effect"
+    ],
+    "2": [
+        "perspective, abstract color blocks, bright primary colors, flat saturated, highly detailed/perspective, black and white, flat, highly detailed/perspective, abstract color blocks, pink and violet, flat saturated, highly detailed",
+        "low quality, blur, nsfw, text, watermark/low quality, blur, nsfw, text, watermark/low quality, blur, nsfw, text, watermark",
+        "True/True/True",
+        "0.55/0.55/0.55",
+        "0/300/600",
+        "Perspective Effect"
+    ]
+}
