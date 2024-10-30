@@ -26,7 +26,7 @@ import signal
 import requests
 
 # For type hint
-from typing import Generator
+from typing import Generatorcmd
 
 open_file = open("config.txt", "r")
 model_path = open_file.readline()
@@ -659,7 +659,7 @@ def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
     
     # Loop or destroy the process window
     if looping:
-        if (preset_index<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
+        if (preset_index+1<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
             preset_index = preset_index+1
         time_index = time_index+1
         process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, out))
@@ -793,7 +793,7 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     
     # Loop or destroy the process window
     if looping:
-        if (preset_index<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
+        if (preset_index+1<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
             preset_index = preset_index+1
         time_index = time_index+1    
         process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height,out))
@@ -830,10 +830,6 @@ def perspective_handler(webcam : WebcamCapture) -> None:
     center_y = center_x
     box_width = 1
     box_height = box_width
-    
-    if adapter_image_var.get() != "":
-        adapter_image = load_image(adapter_image_var.get())
-        pipeline.add_ip_adapter(adapter_image)
 
     # If asked, start the record
     out = None
