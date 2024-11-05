@@ -643,7 +643,9 @@ def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
             print("Using preset number : "+str(preset_index)+" ("+str(time_index)+"/"+str(start_time[preset_index+1])+")")
         except :
             pass
-    if silhouette_var.get() :
+
+    global silhouette_list
+    if silhouette_list[preset_index] != "None" :
         # Color the white silhouette
         colored_input = color_white_pixels(input_image)
         # Paste silhouette on the processed image
@@ -752,7 +754,16 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     global input_image
     global output_image
     global looping
-    
+    # Time Preset
+    global time_index
+    global preset_index
+    global start_time
+    global invert_list
+    global blend_list
+    global positive_prompt_list
+    global negative_prompt_list
+    global subpreset_number
+
     # Capture and process the input image
     input_image = webcam.capture_image()
     if invert_list[preset_index] :
@@ -777,6 +788,7 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
         except :
             pass
 
+    global silhouette_list
     if silhouette_list[preset_index] != "None" :
         # Color the white silhouette
         colored_input = color_white_pixels(input_image)
