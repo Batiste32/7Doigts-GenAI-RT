@@ -752,16 +752,6 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     global input_image
     global output_image
     global looping
-    # Time Preset
-    global time_index
-    global preset_index
-    global start_time
-    global invert_list
-    global blend_list
-    global silhouette_list
-    global positive_prompt_list
-    global negative_prompt_list
-    global subpreset_number
     
     # Capture and process the input image
     input_image = webcam.capture_image()
