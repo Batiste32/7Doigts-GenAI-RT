@@ -127,7 +127,7 @@ If the debug mode is activated, the input will be shown with the output.
     <img src="/assets/screen-preview-debug.PNG" alt="Preview in debug mode" height="150"/>
 </p>
 
-Note : For this example, I use a Kinect camera with a body tracking algorithm, which gives this black and white input, ideal for abstract transformation. If you use a standard webcam, it might be preferable to use more "realistic" prompts.
+Note : For this example, I use a Kinect camera with a body tracking algorithm (stored in the `.vl` file), which gives this black and white input, ideal for abstract transformation. If you use a standard webcam, it might be preferable to use more "realistic" prompts.
 
 ### The different effects
 

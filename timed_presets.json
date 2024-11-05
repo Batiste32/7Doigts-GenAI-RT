@@ -12,6 +12,7 @@
         "True/True/True",
         "0.55/0.55/0.55",
         "0/300/600",
+        "None/None/None",
         "Standard Effect"
     ],
     "2": [
@@ -19,7 +20,8 @@
         "low quality, blur, nsfw, text, watermark/low quality, blur, nsfw, text, watermark/low quality, blur, nsfw, text, watermark",
         "True/True/True",
         "0.55/0.55/0.55",
-        "0/300/600",
+        "0/4/8",
+        "None/None/0.5,0.0,0.1",
         "Perspective Effect"
     ]
 }

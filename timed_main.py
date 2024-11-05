@@ -262,7 +262,6 @@ class CNPipeline:
             negative_prompt=negative_prompt,
             image=self.control_image,
             controlnet_conditioning_scale=self.controlnet_conditioning_scale,
-            ip_adapter_image=self.adapter_image,
             num_inference_steps=num_steps,
             strength=strength,
             guidance_scale=cfg,
@@ -309,24 +308,20 @@ def invert_image(image: Image.Image) -> Image.Image:
     Returns:
         Image.Image: The inverted image if allowed; otherwise, the original image.
     """
-    # Skip function if variable set to False
-    if invert_var.get():
-        # Convert image to RGB mode if it's not in RGB
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
+    # Convert image to RGB mode if it's not in RGB
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
 
-        # Convert the image to a NumPy array
-        image_np = np.array(image)
+    # Convert the image to a NumPy array
+    image_np = np.array(image)
 
-        # Invert the colors by subtracting pixel values from 255
-        inverted_np = 255 - image_np
+    # Invert the colors by subtracting pixel values from 255
+    inverted_np = 255 - image_np
 
-        # Convert back to a PIL image
-        inverted_image = Image.fromarray(inverted_np)
-        
-        return inverted_image
-    else:
-        return image
+    # Convert back to a PIL image
+    inverted_image = Image.fromarray(inverted_np)
+    
+    return inverted_image
 
 def blend_images(image1: Image.Image, image2: Image.Image, alpha: float = 0.45) -> Image.Image:
     """
@@ -659,7 +654,7 @@ def classic_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_window, 
     
     # Loop or destroy the process window
     if looping:
-        if (preset_index<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
+        if (preset_index+1<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
             preset_index = preset_index+1
         time_index = time_index+1
         process_window.after(1, lambda: classic_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot, out))
@@ -757,6 +752,16 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     global input_image
     global output_image
     global looping
+    # Time Preset
+    global time_index
+    global preset_index
+    global start_time
+    global invert_list
+    global blend_list
+    global silhouette_list
+    global positive_prompt_list
+    global negative_prompt_list
+    global subpreset_number
     
     # Capture and process the input image
     input_image = webcam.capture_image()
@@ -775,14 +780,14 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     pipeline.load_control_image(perspective)
 
     # Transform the image with the pipeline
-    output_image = pipeline.transform_image(positive_prompt_var.get())
+    output_image = pipeline.transform_image(positive_prompt_list[preset_index], negative_prompt=negative_prompt_list[preset_index])
     if debug_var.get():
         try :
             print("Using preset number : "+str(preset_index)+" ("+str(time_index)+"/"+str(start_time[preset_index+1])+")")
         except :
             pass
 
-    if silhouette_var.get() :
+    if silhouette_list[preset_index] != "None" :
         # Color the white silhouette
         colored_input = color_white_pixels(input_image)
         # Paste silhouette on the processed image
@@ -793,7 +798,7 @@ def perspective_loop(webcam : WebcamCapture, pipeline : SDPipeline, process_wind
     
     # Loop or destroy the process window
     if looping:
-        if (preset_index<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
+        if (preset_index+1<subpreset_number) and (time_index >= start_time[preset_index+1]) : # Change subpreset
             preset_index = preset_index+1
         time_index = time_index+1    
         process_window.after(1, lambda : perspective_loop(webcam, pipeline, process_window, full_width, full_height, input_slot, output_slot,center_x,center_y,box_width,box_height,out))
@@ -830,10 +835,6 @@ def perspective_handler(webcam : WebcamCapture) -> None:
     center_y = center_x
     box_width = 1
     box_height = box_width
-    
-    if adapter_image_var.get() != "":
-        adapter_image = load_image(adapter_image_var.get())
-        pipeline.add_ip_adapter(adapter_image)
 
     # If asked, start the record
     out = None
@@ -966,6 +967,13 @@ def color_white_pixels(image: Image.Image) -> Image.Image:
         Image.Image: The modified image with white pixels replaced by the specified color.
     """
     global color_code  # Ensure color_code is recognized as a global variable
+    global silhouette_list
+    global preset_index
+
+    color_string = silhouette_list[preset_index].split(",")
+    color_code[0] = float(color_string[0])
+    color_code[1] = float(color_string[1])
+    color_code[2] = float(color_string[2])
 
     # Convert the image to RGBA (if not already in that mode)
     img = image.convert("RGBA")
@@ -1065,6 +1073,10 @@ def load_timed_preset() -> None:
     # Update blending
     global blend_list
     blend_list = chosen_preset[3].split("/") 
+
+    # Update silhouettes
+    global silhouette_list
+    silhouette_list = chosen_preset[4].split("/") 
 
     # Update effect type
     effect_type_var.set(chosen_preset[-1])  # Last element is always the effect type.
@@ -1234,20 +1246,15 @@ negative_prompt_entry.edit_modified(False)  # Reset the modified flag after bind
 tk.Label(standard_parameters_frame, text="Image Size",font="Medium").grid(row=6,column=0,sticky="nsew")
 image_size = tk.IntVar()
 tk.Spinbox(standard_parameters_frame, values=(512,768,1024), font="Medium", textvariable=image_size, state='readonly', wrap=True).grid(row=6,column=1,sticky="nsew")
-invert_var = tk.BooleanVar()
-tk.Checkbutton(standard_parameters_frame, variable=invert_var, text="Invert Camera Image ?",font="Medium").grid(row=7,column=0,sticky="nsew")
-tk.Label(standard_parameters_frame, text="Blending Value",font="Medium").grid(row=8,column=0,sticky="nsew")
-blend_var = tk.DoubleVar()
-blend_var.set(0.55)
-tk.Spinbox(standard_parameters_frame, textvariable=blend_var, from_=0.0, to=1.0, increment=0.05, wrap=True).grid(row=8,column=1,sticky="nsew")
-tk.Label(standard_parameters_frame, text="Model Selection",font="Medium").grid(row=9,column=0,sticky="nsew")
+tk.Label(standard_parameters_frame, text="Model Selection",font="Medium").grid(row=7,column=0,sticky="nsew")
 model_name_var = tk.StringVar()
 model_name_var.set("stabilityai/sdxl-turbo")
 model_name_entry = tk.Entry(standard_parameters_frame,textvariable=model_name_var,font="Medium")
-model_name_entry.grid(row=9,column=1,sticky="nsew")
+model_name_entry.grid(row=7,column=1,sticky="nsew")
 
 # Perspective Parameters
-tk.Label(header_frame,text="Parameters for Perspective FXs",font="Large").grid(row=0,column=3,sticky="nsew")
+tk.Label(header_frame,text="    ",font="Large").grid(row=0,column=1,sticky="nsew")
+tk.Label(header_frame,text="Parameters for Perspective FXs",font="Large").grid(row=0,column=5,sticky="nsew")
 global color_code
 color_code=(1,1,1)
 tk.Button(perspective_frame, text="Choose Color", command=choose_color, font="Medium").grid(row=1,column=0,sticky="nsew")
@@ -1278,7 +1285,7 @@ if using_server :
 
 # Start Buttons
 tk.Button(parameters_frame, text="Standard FXs",command=lambda : classic_handler(webcam),font="Large").grid(row=10,column=0,sticky="nsew")
-tk.Button(parameters_frame, text="Perspective FXs",command=lambda : perspective_handler(webcam),font="Large").grid(row=10,column=2,sticky="nsew")
+tk.Button(parameters_frame, text="Perspective FXs",command=lambda : perspective_handler(webcam),font="Large").grid(row=10,column=1,sticky="nsew")
 
 # Configure rows and columns for each frame
 for frame in [main_window, parameters_frame, standard_parameters_frame, global_settings_frame]:
